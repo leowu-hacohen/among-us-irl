@@ -4,8 +4,15 @@ import { useRouter, useParams } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import CrewmateUI from '@/components/CrewmateUI'
 import ImpostorUI from '@/components/ImpostorUI'
+import MeetingAlert from '@/components/MeetingAlert'
 import type { Player, Game, Task, Sabotage } from '@/types/game'
-import { playEmergencyMeeting, unlockAudio } from '@/lib/sounds'
+import { unlockAudio } from '@/lib/sounds'
+
+interface MeetingInfo {
+  type: 'emergency' | 'report'
+  callerName: string
+  reportedName?: string
+}
 
 export default function GamePage() {
   const router = useRouter()
@@ -17,6 +24,7 @@ export default function GamePage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [gameOver, setGameOver] = useState<{ winner: 'crewmates' | 'impostors'; reason: string } | null>(null)
+  const [meetingAlert, setMeetingAlert] = useState<MeetingInfo | null>(null)
 
   useEffect(() => {
     const handler = () => { unlockAudio(); window.removeEventListener('touchstart', handler) }
@@ -102,12 +110,17 @@ export default function GamePage() {
           schema: 'public',
           table: 'meetings',
           filter: `game_id=eq.${gameData.id}`,
-        }, (payload) => {
+        }, async (payload) => {
           const meeting = payload.new
-          if (meeting.status === 'voting') {
-            playEmergencyMeeting()
-            router.push(`/vote/${code}`)
-          }
+          if (meeting.status !== 'voting') return
+          const { data: allPlayers } = await supabase.from('players').select().eq('game_id', gameData.id)
+          const caller = allPlayers?.find((p: Player) => p.id === meeting.called_by)
+          const body = meeting.reported_body ? allPlayers?.find((p: Player) => p.id === meeting.reported_body) : null
+          setMeetingAlert({
+            type: meeting.type,
+            callerName: caller?.name ?? 'Someone',
+            reportedName: body?.name,
+          })
         })
         .on('postgres_changes', {
           event: 'UPDATE',
@@ -201,9 +214,23 @@ export default function GamePage() {
 
   if (!player || !game) return null
 
-  if (player.role === 'impostor') {
-    return <ImpostorUI player={player} gameId={game.id} gameCode={code} />
-  }
-
-  return <CrewmateUI player={player} gameId={game.id} gameCode={code} />
+  return (
+    <>
+      {meetingAlert && (
+        <MeetingAlert
+          type={meetingAlert.type}
+          callerName={meetingAlert.callerName}
+          reportedName={meetingAlert.reportedName}
+          onDismiss={() => {
+            setMeetingAlert(null)
+            router.push(`/vote/${code}`)
+          }}
+        />
+      )}
+      {player.role === 'impostor'
+        ? <ImpostorUI player={player} gameId={game.id} gameCode={code} />
+        : <CrewmateUI player={player} gameId={game.id} gameCode={code} />
+      }
+    </>
+  )
 }
