@@ -4,7 +4,7 @@ import { useRouter, useParams } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import DiscussionScreen from '@/components/DiscussionScreen'
 import TaskChecklist from '@/components/TaskChecklist'
-import { unlockAudio, playEmergencyMeeting } from '@/lib/sounds'
+import { playEmergencyMeeting } from '@/lib/sounds'
 import type { Player, Game } from '@/types/game'
 
 type Screen = 'game' | 'discussion'
@@ -23,12 +23,6 @@ export default function GamePage() {
   const [callingMeeting, setCallingMeeting] = useState(false)
   const [playSoundOnDiscussion, setPlaySoundOnDiscussion] = useState(false)
 
-  // Unlock audio on first touch
-  useEffect(() => {
-    const handler = () => { unlockAudio(); window.removeEventListener('touchstart', handler) }
-    window.addEventListener('touchstart', handler)
-    return () => window.removeEventListener('touchstart', handler)
-  }, [])
 
   useEffect(() => {
     const playerId = localStorage.getItem('playerId')

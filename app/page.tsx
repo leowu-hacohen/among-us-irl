@@ -2,6 +2,7 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
+import { unlockAudio } from '@/lib/sounds'
 
 function generateCode() {
   const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'
@@ -24,6 +25,7 @@ export default function Home() {
 
   async function createGame() {
     if (!name.trim()) { setError('Please enter your name'); return }
+    unlockAudio()
     setLoading(true)
     setError('')
     const gameCode = generateCode()
@@ -49,6 +51,7 @@ export default function Home() {
   async function joinGame() {
     if (!name.trim()) { setError('Please enter your name'); return }
     if (!code.trim()) { setError('Please enter a game code'); return }
+    unlockAudio()
     setLoading(true)
     setError('')
     const { data: game, error: gameError } = await supabase
