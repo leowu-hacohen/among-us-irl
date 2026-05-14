@@ -25,6 +25,7 @@ export default function GamePage() {
   const [soundEnabled, setSoundEnabled] = useState(false)
   const [currentMeetingId, setCurrentMeetingId] = useState('')
   const [isCaller, setIsCaller] = useState(false)
+  const [confirmingKill, setConfirmingKill] = useState(false)
 
 
   useEffect(() => {
@@ -120,6 +121,13 @@ export default function GamePage() {
     setCallingMeeting(false)
   }
 
+  async function markSelfKilled() {
+    if (!player) return
+    await supabase.from('players').update({ is_alive: false }).eq('id', player.id)
+    setPlayer({ ...player, is_alive: false })
+    setConfirmingKill(false)
+  }
+
   function handleDiscussionEnd() {
     setScreen('game')
     setMeetingCallerName('')
@@ -183,6 +191,19 @@ export default function GamePage() {
           <div>
             <p className="text-gray-500 text-xs uppercase tracking-widest">Playing as</p>
             <p className="text-white font-bold text-lg">{player.name}</p>
+            {!player.is_alive ? (
+              <span className="inline-flex items-center gap-1 mt-1 text-xs text-red-500 font-bold uppercase tracking-wider">
+                ✕ Eliminated
+              </span>
+            ) : (
+              <button
+                onClick={() => setConfirmingKill(true)}
+                className="mt-1 px-3 py-1 rounded-lg text-xs font-bold uppercase tracking-wider active:scale-95 transition-all"
+                style={{ background: '#3f0000', color: '#f87171', border: '1px solid #7f1d1d' }}
+              >
+                ☠ Killed
+              </button>
+            )}
           </div>
           <div className="text-right">
             <p className="text-gray-500 text-xs uppercase tracking-widest">Game</p>
@@ -194,6 +215,30 @@ export default function GamePage() {
             </p>
           </div>
         </div>
+
+        {/* Kill confirmation modal */}
+        {confirmingKill && (
+          <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/80 px-6">
+            <div className="bg-[#1a1a2e] rounded-2xl p-6 w-full max-w-sm border border-white/10 text-center flex flex-col gap-4">
+              <p className="text-4xl">☠️</p>
+              <p className="text-white font-bold text-lg">Mark yourself as killed?</p>
+              <p className="text-gray-400 text-sm">You'll be X'd out in the next emergency meeting and won't be able to vote.</p>
+              <button
+                onClick={markSelfKilled}
+                className="w-full py-4 rounded-xl font-black text-lg uppercase tracking-wider active:scale-95"
+                style={{ background: 'linear-gradient(to bottom, #dc2626, #991b1b)', color: '#fff' }}
+              >
+                Confirm — I'm Dead
+              </button>
+              <button
+                onClick={() => setConfirmingKill(false)}
+                className="w-full py-3 text-gray-400 hover:text-white text-sm uppercase tracking-wider"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        )}
 
         <div className="flex-1 overflow-y-auto">
           <TaskChecklist gameId={game.id} playerId={player.id} />
