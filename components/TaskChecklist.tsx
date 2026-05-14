@@ -61,7 +61,7 @@ export default function TaskChecklist({ gameId, playerId }: Props) {
       <div>
         <div className="flex justify-between text-xs text-gray-400 mb-1 uppercase tracking-wider">
           <span>Tasks</span>
-          <span>{done} / {total} complete</span>
+          <span>{pct}% complete</span>
         </div>
         <div className="w-full h-3 rounded-full bg-white/10 overflow-hidden">
           <div
