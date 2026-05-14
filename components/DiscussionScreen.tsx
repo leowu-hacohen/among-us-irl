@@ -1,5 +1,5 @@
 'use client'
-import { useEffect, useState, useCallback } from 'react'
+import { useEffect, useState, useCallback, useRef } from 'react'
 import { playEmergencyMeeting } from '@/lib/sounds'
 import { supabase } from '@/lib/supabase'
 import type { Player } from '@/types/game'
@@ -17,7 +17,6 @@ interface Props {
 
 const TOTAL = 120
 
-// Mock icons assigned by color — easy to swap out later
 const COLOR_ICONS: Record<string, { emoji: string; bg: string }> = {
   red:    { emoji: '🚀', bg: '#7f1d1d' },
   blue:   { emoji: '🧊', bg: '#1e3a5f' },
@@ -31,17 +30,12 @@ const COLOR_ICONS: Record<string, { emoji: string; bg: string }> = {
   maroon: { emoji: '🦇', bg: '#450a0a' },
 }
 const FALLBACK = { emoji: '👾', bg: '#1a1a2e' }
-
-function getIcon(player: Player) {
-  return COLOR_ICONS[player.color] ?? FALLBACK
-}
+function getIcon(player: Player) { return COLOR_ICONS[player.color] ?? FALLBACK }
 
 type VotePhase = 'waiting' | 'voting' | 'confirming' | 'voted' | 'results'
 
-interface VoteResult {
-  ejected: Player | null
-  tie: boolean
-}
+interface VoteRecord { voter_id: string; target_id: string | null }
+interface VoteResult { ejected: Player | null; tie: boolean; votes: VoteRecord[] }
 
 export default function DiscussionScreen({
   gameCode, gameId, callerName, meetingId, isCaller, playerId, onEnd, playSound = false
@@ -54,34 +48,35 @@ export default function DiscussionScreen({
   const [phase, setPhase] = useState<VotePhase>('waiting')
   const [votedPlayerIds, setVotedPlayerIds] = useState<Set<string>>(new Set())
   const [result, setResult] = useState<VoteResult | null>(null)
+  const playersRef = useRef<Player[]>([])
+  const tallyCalledRef = useRef(false)
 
-  useEffect(() => {
-    if (playSound) playEmergencyMeeting()
-  }, [playSound])
+  useEffect(() => { if (playSound) playEmergencyMeeting() }, [playSound])
 
-  // Fetch players
   useEffect(() => {
     supabase.from('players').select().eq('game_id', gameId).then(({ data }) => {
-      if (data) setPlayers(data)
+      if (data) { setPlayers(data); playersRef.current = data }
     })
   }, [gameId])
 
-  // When timer starts, allow voting
-  useEffect(() => {
-    if (timerRunning) setPhase('voting')
-  }, [timerRunning])
+  useEffect(() => { if (timerRunning) setPhase('voting') }, [timerRunning])
 
   const tallyVotes = useCallback(async () => {
-    const { data: votes } = await supabase.from('votes').select().eq('meeting_id', meetingId)
-    if (!votes) return
+    if (tallyCalledRef.current) return
+    tallyCalledRef.current = true
 
-    // Auto-skip anyone who hasn't voted
-    const voterIds = new Set(votes.map((v: { voter_id: string }) => v.voter_id))
-    const missing = players.filter(p => !voterIds.has(p.id))
+    const currentPlayers = playersRef.current
+
+    // Auto-skip anyone who hasn't voted (ignore conflicts — unique constraint handles dupes)
+    const { data: existingVotes } = await supabase.from('votes').select().eq('meeting_id', meetingId)
+    const votes: VoteRecord[] = existingVotes ?? []
+    const voterIds = new Set(votes.map(v => v.voter_id))
+    const missing = currentPlayers.filter(p => !voterIds.has(p.id))
+
     if (missing.length > 0) {
-      await Promise.all(missing.map(p =>
-        supabase.from('votes').insert({ meeting_id: meetingId, voter_id: p.id, target_id: null }).select()
-      ))
+      const skipRows = missing.map(p => ({ meeting_id: meetingId, voter_id: p.id, target_id: null }))
+      const { data: inserted } = await supabase.from('votes').upsert(skipRows, { onConflict: 'meeting_id,voter_id', ignoreDuplicates: true }).select()
+      if (inserted) votes.push(...inserted)
     }
 
     // Tally
@@ -98,14 +93,13 @@ export default function DiscussionScreen({
       else if (count === maxVotes) { tie = true }
     }
 
-    const ejected = ejectedId && !tie ? players.find(p => p.id === ejectedId) ?? null : null
-    setResult({ ejected, tie: tie || maxVotes === 0 })
+    const ejected = ejectedId && !tie ? currentPlayers.find(p => p.id === ejectedId) ?? null : null
+    setResult({ ejected, tie: tie || maxVotes === 0, votes })
     setPhase('results')
+    setTimeout(onEnd, 6000)
+  }, [meetingId, onEnd])
 
-    setTimeout(onEnd, 4000)
-  }, [meetingId, players, onEnd])
-
-  // Subscribe to meeting timer start + votes
+  // Subscribe to meeting timer + votes
   useEffect(() => {
     const channel = supabase
       .channel(`discussion-${meetingId}`)
@@ -117,13 +111,20 @@ export default function DiscussionScreen({
       .on('postgres_changes', {
         event: 'INSERT', schema: 'public', table: 'votes', filter: `meeting_id=eq.${meetingId}`,
       }, (payload) => {
-        setVotedPlayerIds(prev => new Set([...prev, payload.new.voter_id]))
+        setVotedPlayerIds(prev => {
+          const next = new Set([...prev, payload.new.voter_id])
+          // If all players have voted, tally immediately
+          if (playersRef.current.length > 0 && next.size >= playersRef.current.length) {
+            tallyVotes()
+          }
+          return next
+        })
       })
       .subscribe()
     return () => { supabase.removeChannel(channel) }
-  }, [meetingId])
+  }, [meetingId, tallyVotes])
 
-  // Countdown
+  // Countdown — tally when timer hits 0
   useEffect(() => {
     if (!timerRunning) return
     const interval = setInterval(() => {
@@ -154,10 +155,9 @@ export default function DiscussionScreen({
   const pct = (seconds / TOTAL) * 100
 
   return (
-    <div
-      className="fixed inset-0 z-50 flex flex-col px-4 py-8 overflow-y-auto"
-      style={{ background: 'linear-gradient(to bottom, #1a0000, #2d0000, #1a0000)' }}
-    >
+    <div className="fixed inset-0 z-50 flex flex-col px-4 py-8 overflow-y-auto"
+      style={{ background: 'linear-gradient(to bottom, #1a0000, #2d0000, #1a0000)' }}>
+
       {/* Header */}
       <div className="text-center mb-4">
         <p className="text-red-400 text-xs uppercase tracking-[0.3em] mb-1 font-bold">Game: {gameCode}</p>
@@ -168,11 +168,11 @@ export default function DiscussionScreen({
         <p className="text-red-300 text-sm mt-1">Called by <span className="text-white font-bold">{callerName}</span></p>
       </div>
 
-      {/* Timer / waiting */}
+      {/* Timer */}
       {!timerRunning ? (
         <div className="text-center flex flex-col items-center gap-4 my-4">
           <p className="text-red-300 text-sm uppercase tracking-widest animate-pulse">
-            {isCaller ? 'Everyone here? Start the timer.' : `Waiting for ${callerName} to start the timer...`}
+            {isCaller ? 'Everyone here? Start the timer.' : `Waiting for ${callerName} to start...`}
           </p>
           {isCaller && (
             <button onClick={startTimer} disabled={starting}
@@ -182,28 +182,60 @@ export default function DiscussionScreen({
             </button>
           )}
         </div>
-      ) : (
-        <div className="flex items-center justify-center gap-4 my-2">
-          <div className="text-5xl font-black tabular-nums"
-            style={{ color: seconds <= 30 ? '#ff4444' : '#fff', textShadow: seconds <= 30 ? '0 0 20px rgba(255,0,0,0.9)' : 'none' }}>
+      ) : phase !== 'results' && (
+        <div className="flex items-center gap-3 my-2">
+          <div className="text-4xl font-black tabular-nums"
+            style={{ color: seconds <= 30 ? '#ff4444' : '#fff' }}>
             {timeStr}
           </div>
           <div className="flex-1 h-2 rounded-full bg-white/10 overflow-hidden">
             <div className="h-full rounded-full transition-all duration-1000"
               style={{ width: `${pct}%`, background: seconds <= 30 ? '#ef4444' : '#fff' }} />
           </div>
+          <span className="text-gray-400 text-xs whitespace-nowrap">{votedPlayerIds.size}/{players.length} voted</span>
         </div>
       )}
 
-      {/* Results */}
+      {/* Results — vote reveal */}
       {phase === 'results' && result && (
-        <div className="text-center my-4 py-6 rounded-2xl bg-black/40 border border-white/10">
-          <p className="text-4xl mb-3">{result.ejected ? '💀' : '😮'}</p>
-          <p className="text-2xl font-black text-white uppercase tracking-wider">
-            {result.ejected ? `${result.ejected.name} ejected!` : 'No one was ejected.'}
-          </p>
-          {result.tie && <p className="text-red-300 text-sm mt-1">It was a tie.</p>}
-          <p className="text-gray-400 text-sm mt-2 animate-pulse">Returning to game...</p>
+        <div className="flex flex-col gap-4 my-2">
+          <div className="text-center py-4 rounded-2xl bg-black/40 border border-white/10">
+            <p className="text-4xl mb-2">{result.ejected ? '💀' : '😮'}</p>
+            <p className="text-2xl font-black text-white uppercase tracking-wider">
+              {result.ejected ? `${result.ejected.name} ejected!` : 'No one ejected.'}
+            </p>
+            {result.tie && <p className="text-red-300 text-sm mt-1">It was a tie.</p>}
+            <p className="text-gray-400 text-xs mt-2 animate-pulse">Returning to game...</p>
+          </div>
+
+          {/* Who voted for whom */}
+          <div className="flex flex-col gap-2">
+            <p className="text-gray-400 text-xs uppercase tracking-widest text-center">Votes revealed</p>
+            {result.votes.map(v => {
+              const voter = players.find(p => p.id === v.voter_id)
+              const target = players.find(p => p.id === v.target_id)
+              if (!voter) return null
+              const voterIcon = getIcon(voter)
+              const targetIcon = target ? getIcon(target) : null
+              return (
+                <div key={v.voter_id} className="flex items-center gap-3 px-4 py-2 rounded-xl bg-white/5 border border-white/10">
+                  <div className="w-8 h-8 rounded-full flex items-center justify-center text-lg flex-shrink-0"
+                    style={{ background: voterIcon.bg }}>{voterIcon.emoji}</div>
+                  <span className="text-white text-sm font-medium flex-1">{voter.name}</span>
+                  <span className="text-gray-500 text-xs">→</span>
+                  {targetIcon && target ? (
+                    <div className="flex items-center gap-2">
+                      <div className="w-8 h-8 rounded-full flex items-center justify-center text-lg"
+                        style={{ background: targetIcon.bg }}>{targetIcon.emoji}</div>
+                      <span className="text-red-300 text-sm font-bold">{target.name}</span>
+                    </div>
+                  ) : (
+                    <span className="text-gray-400 text-sm italic">Skipped</span>
+                  )}
+                </div>
+              )
+            })}
+          </div>
         </div>
       )}
 
@@ -216,19 +248,15 @@ export default function DiscussionScreen({
             const hasVoted = votedPlayerIds.has(p.id)
             const isMe = p.id === playerId
             const selectable = phase === 'voting' && !myVoted && !isMe
-
             return (
-              <button
-                key={p.id}
+              <button key={p.id}
                 onClick={() => selectable && setSelectedId(isSelected ? null : p.id)}
                 disabled={!selectable}
                 className={`flex flex-col items-center gap-2 p-3 rounded-2xl border-2 transition-all active:scale-95 ${
                   isSelected ? 'border-yellow-400 bg-yellow-400/10' :
                   isMe ? 'border-blue-500/50 bg-blue-900/20' :
                   'border-white/10 bg-white/5'
-                } ${!selectable ? 'opacity-70' : ''}`}
-              >
-                {/* Icon */}
+                } ${!selectable ? 'opacity-70' : ''}`}>
                 <div className="w-14 h-14 rounded-full flex items-center justify-center text-3xl relative"
                   style={{ background: icon.bg, border: isSelected ? '2px solid #facc15' : '2px solid rgba(255,255,255,0.1)' }}>
                   {icon.emoji}
@@ -249,16 +277,9 @@ export default function DiscussionScreen({
         </div>
       )}
 
-      {/* Vote count */}
-      {timerRunning && phase !== 'results' && (
-        <p className="text-center text-gray-400 text-xs uppercase tracking-wider mb-2">
-          {votedPlayerIds.size} / {players.length} voted
-        </p>
-      )}
-
-      {/* Confirm vote overlay */}
+      {/* Confirm overlay */}
       {phase === 'confirming' && selectedId && (
-        <div className="fixed inset-0 z-60 flex items-center justify-center bg-black/80 px-6">
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/80 px-6">
           <div className="bg-[#1a1a2e] rounded-2xl p-6 w-full max-w-sm border border-white/10 text-center flex flex-col gap-4">
             <p className="text-white font-bold text-lg">Vote for <span className="text-yellow-400">{players.find(p => p.id === selectedId)?.name}</span>?</p>
             <button onClick={() => submitVote(selectedId)}
@@ -274,32 +295,24 @@ export default function DiscussionScreen({
       )}
 
       {/* Bottom actions */}
-      <div className="flex flex-col gap-3 mt-auto pt-4">
-        {phase === 'voting' && !myVoted && (
-          <>
-            <button
-              onClick={() => selectedId && setPhase('confirming')}
-              disabled={!selectedId}
-              className="w-full py-4 rounded-xl font-black text-lg uppercase tracking-widest active:scale-95 disabled:opacity-30 transition-all"
-              style={{ background: selectedId ? 'linear-gradient(to bottom, #dc2626, #991b1b)' : '#374151', color: '#fff' }}>
-              Vote
-            </button>
-            <button onClick={() => submitVote(null)}
-              className="w-full py-3 rounded-xl bg-white/10 hover:bg-white/20 text-gray-300 font-bold uppercase tracking-wider active:scale-95 transition-all border border-white/10">
-              Skip Vote
-            </button>
-          </>
-        )}
-        {(phase === 'voted' || myVoted) && phase !== 'results' && (
-          <p className="text-center text-gray-400 text-sm animate-pulse uppercase tracking-wider">Vote submitted. Waiting for others...</p>
-        )}
-        {phase === 'waiting' && (
-          <button onClick={onEnd}
-            className="w-full py-4 rounded-xl bg-red-900/60 hover:bg-red-800/60 text-white font-black text-base uppercase tracking-widest active:scale-95 border border-red-700/30">
-            End Discussion
+      {phase === 'voting' && !myVoted && (
+        <div className="flex flex-col gap-3 mt-auto pt-4">
+          <button onClick={() => selectedId && setPhase('confirming')} disabled={!selectedId}
+            className="w-full py-4 rounded-xl font-black text-lg uppercase tracking-widest active:scale-95 disabled:opacity-30 transition-all"
+            style={{ background: selectedId ? 'linear-gradient(to bottom, #dc2626, #991b1b)' : '#374151', color: '#fff' }}>
+            Vote
           </button>
-        )}
-      </div>
+          <button onClick={() => submitVote(null)}
+            className="w-full py-3 rounded-xl bg-white/10 hover:bg-white/20 text-gray-300 font-bold uppercase tracking-wider active:scale-95 border border-white/10">
+            Skip Vote
+          </button>
+        </div>
+      )}
+      {(phase === 'voted' || myVoted) && phase !== 'results' && (
+        <p className="text-center text-gray-400 text-sm animate-pulse uppercase tracking-wider mt-auto pt-4">
+          Vote submitted. Waiting for others...
+        </p>
+      )}
     </div>
   )
 }
