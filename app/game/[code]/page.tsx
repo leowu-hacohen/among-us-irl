@@ -4,7 +4,7 @@ import { useRouter, useParams } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import DiscussionScreen from '@/components/DiscussionScreen'
 import TaskChecklist from '@/components/TaskChecklist'
-import { playEmergencyMeeting } from '@/lib/sounds'
+import { playEmergencyMeeting, unlockAudio } from '@/lib/sounds'
 import type { Player, Game } from '@/types/game'
 
 type Screen = 'game' | 'discussion'
@@ -22,6 +22,7 @@ export default function GamePage() {
   const [meetingCallerName, setMeetingCallerName] = useState('')
   const [callingMeeting, setCallingMeeting] = useState(false)
   const [playSoundOnDiscussion, setPlaySoundOnDiscussion] = useState(false)
+  const [soundEnabled, setSoundEnabled] = useState(false)
 
 
   useEffect(() => {
@@ -152,6 +153,18 @@ export default function GamePage() {
 
       {/* Main game view — always rendered, overlaid when alert/discussion is shown */}
       <div className="min-h-screen bg-[#0d0d1a] flex flex-col pb-32">
+
+        {/* Sound enable banner */}
+        {!soundEnabled && (
+          <button
+            onClick={() => { unlockAudio(); setSoundEnabled(true) }}
+            className="w-full py-3 text-center text-sm font-bold uppercase tracking-widest text-black animate-pulse"
+            style={{ background: '#facc15' }}
+          >
+            🔔 Tap here to enable sound
+          </button>
+        )}
+
         {/* Header */}
         <div className="px-4 pt-8 pb-4 flex items-center justify-between">
           <div>
