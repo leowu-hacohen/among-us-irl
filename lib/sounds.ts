@@ -1,4 +1,5 @@
 let ctx: AudioContext | null = null
+let keepAlive: AudioBufferSourceNode | null = null
 
 function getCtx(): AudioContext {
   if (!ctx) {
@@ -8,6 +9,8 @@ function getCtx(): AudioContext {
   return ctx
 }
 
+// Call once on first user tap — keeps AudioContext alive so sounds work
+// even when triggered by network events (not direct taps)
 export function unlockAudio() {
   try {
     const c = getCtx()
@@ -16,6 +19,16 @@ export function unlockAudio() {
     src.buffer = buf
     src.connect(c.destination)
     src.start(0)
+
+    // Loop 1s of silence to keep context running on iOS
+    if (!keepAlive) {
+      const silentBuf = c.createBuffer(1, c.sampleRate, c.sampleRate)
+      keepAlive = c.createBufferSource()
+      keepAlive.buffer = silentBuf
+      keepAlive.loop = true
+      keepAlive.connect(c.destination)
+      keepAlive.start(0)
+    }
   } catch {}
 }
 
