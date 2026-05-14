@@ -71,50 +71,41 @@ export default function TaskChecklist({ gameId, playerId }: Props) {
         </div>
       </div>
 
-      {/* Task list — player's own tasks */}
-      <div className="flex flex-col gap-2">
+      {/* Task grid — 2 columns */}
+      <div className="grid grid-cols-2 gap-2">
         {myTasks.map(task => (
           <div
             key={task.id}
-            className={`rounded-xl p-4 border transition-all ${task.is_complete ? 'bg-green-900/30 border-green-700/40' : 'bg-[#1a1a2e] border-white/10'}`}
+            className={`rounded-xl p-3 border flex flex-col gap-1.5 transition-all ${task.is_complete ? 'bg-green-900/30 border-green-700/40' : 'bg-[#1a1a2e] border-white/10'}`}
           >
-            <div className="flex items-start gap-3">
-              {/* Checkbox / check icon */}
-              <div className="flex-shrink-0 mt-0.5">
-                {task.is_complete ? (
-                  <div className="w-6 h-6 rounded-full bg-green-500 flex items-center justify-center">
-                    <svg className="w-4 h-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                    </svg>
-                  </div>
-                ) : (
-                  <div className="w-6 h-6 rounded-full border-2 border-white/30" />
-                )}
-              </div>
-
-              {/* Task info */}
-              <div className="flex-1 min-w-0">
-                <p className={`font-bold text-sm ${task.is_complete ? 'text-green-400 line-through' : 'text-white'}`}>
-                  {task.name}
-                </p>
-                <p className={`text-xs mt-0.5 ${task.is_complete ? 'text-green-600 line-through' : 'text-gray-400'}`}>
-                  📍 {task.location}
-                </p>
-                <p className={`text-xs mt-1 ${task.is_complete ? 'text-green-700 line-through' : 'text-gray-500'}`}>
-                  {task.description}
-                </p>
-              </div>
-
-              {/* Complete button */}
-              {!task.is_complete && (
-                <button
-                  onClick={() => completeTask(task.id)}
-                  className="flex-shrink-0 px-3 py-1.5 rounded-lg bg-green-700 hover:bg-green-600 active:scale-95 text-white text-xs font-bold uppercase tracking-wider transition-all"
-                >
-                  Done
-                </button>
+            <div className="flex items-start gap-2">
+              {task.is_complete ? (
+                <div className="w-5 h-5 rounded-full bg-green-500 flex items-center justify-center flex-shrink-0 mt-0.5">
+                  <svg className="w-3 h-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                  </svg>
+                </div>
+              ) : (
+                <div className="w-5 h-5 rounded-full border-2 border-white/30 flex-shrink-0 mt-0.5" />
               )}
+              <p className={`font-bold text-xs leading-tight ${task.is_complete ? 'text-green-400 line-through' : 'text-white'}`}>
+                {task.name}
+              </p>
             </div>
+            <p className={`text-xs ${task.is_complete ? 'text-green-600 line-through' : 'text-gray-400'}`}>
+              📍 {task.location}
+            </p>
+            <p className={`text-xs leading-tight ${task.is_complete ? 'text-green-700 line-through' : 'text-gray-500'}`}>
+              {task.description}
+            </p>
+            {!task.is_complete && (
+              <button
+                onClick={() => completeTask(task.id)}
+                className="mt-auto w-full py-1.5 rounded-lg bg-green-700 hover:bg-green-600 active:scale-95 text-white text-xs font-bold uppercase tracking-wider transition-all"
+              >
+                Done
+              </button>
+            )}
           </div>
         ))}
       </div>
