@@ -154,9 +154,11 @@ export default function GamePage() {
       {screen === 'discussion' && (
         <DiscussionScreen
           gameCode={code}
+          gameId={game.id}
           callerName={meetingCallerName}
           meetingId={currentMeetingId}
           isCaller={isCaller}
+          playerId={player.id}
           onEnd={handleDiscussionEnd}
           playSound={playSoundOnDiscussion}
         />

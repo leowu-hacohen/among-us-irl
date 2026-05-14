@@ -1,56 +1,139 @@
 'use client'
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useCallback } from 'react'
 import { playEmergencyMeeting } from '@/lib/sounds'
 import { supabase } from '@/lib/supabase'
+import type { Player } from '@/types/game'
 
 interface Props {
   gameCode: string
+  gameId: string
   callerName: string
   meetingId: string
   isCaller: boolean
+  playerId: string
   onEnd: () => void
   playSound?: boolean
 }
 
 const TOTAL = 120
 
-export default function DiscussionScreen({ gameCode, callerName, meetingId, isCaller, onEnd, playSound = false }: Props) {
+// Mock icons assigned by color — easy to swap out later
+const COLOR_ICONS: Record<string, { emoji: string; bg: string }> = {
+  red:    { emoji: '🚀', bg: '#7f1d1d' },
+  blue:   { emoji: '🧊', bg: '#1e3a5f' },
+  green:  { emoji: '🌿', bg: '#14532d' },
+  yellow: { emoji: '⚡', bg: '#713f12' },
+  purple: { emoji: '🔮', bg: '#3b0764' },
+  orange: { emoji: '🔥', bg: '#7c2d12' },
+  pink:   { emoji: '🌸', bg: '#831843' },
+  cyan:   { emoji: '❄️', bg: '#164e63' },
+  lime:   { emoji: '🐸', bg: '#1a2e05' },
+  maroon: { emoji: '🦇', bg: '#450a0a' },
+}
+const FALLBACK = { emoji: '👾', bg: '#1a1a2e' }
+
+function getIcon(player: Player) {
+  return COLOR_ICONS[player.color] ?? FALLBACK
+}
+
+type VotePhase = 'waiting' | 'voting' | 'confirming' | 'voted' | 'results'
+
+interface VoteResult {
+  ejected: Player | null
+  tie: boolean
+}
+
+export default function DiscussionScreen({
+  gameCode, gameId, callerName, meetingId, isCaller, playerId, onEnd, playSound = false
+}: Props) {
   const [timerRunning, setTimerRunning] = useState(false)
   const [seconds, setSeconds] = useState(TOTAL)
   const [starting, setStarting] = useState(false)
+  const [players, setPlayers] = useState<Player[]>([])
+  const [selectedId, setSelectedId] = useState<string | null>(null)
+  const [phase, setPhase] = useState<VotePhase>('waiting')
+  const [votedPlayerIds, setVotedPlayerIds] = useState<Set<string>>(new Set())
+  const [result, setResult] = useState<VoteResult | null>(null)
 
   useEffect(() => {
     if (playSound) playEmergencyMeeting()
   }, [playSound])
 
-  // Subscribe to meeting status change so everyone starts timer together
+  // Fetch players
+  useEffect(() => {
+    supabase.from('players').select().eq('game_id', gameId).then(({ data }) => {
+      if (data) setPlayers(data)
+    })
+  }, [gameId])
+
+  // When timer starts, allow voting
+  useEffect(() => {
+    if (timerRunning) setPhase('voting')
+  }, [timerRunning])
+
+  const tallyVotes = useCallback(async () => {
+    const { data: votes } = await supabase.from('votes').select().eq('meeting_id', meetingId)
+    if (!votes) return
+
+    // Auto-skip anyone who hasn't voted
+    const voterIds = new Set(votes.map((v: { voter_id: string }) => v.voter_id))
+    const missing = players.filter(p => !voterIds.has(p.id))
+    if (missing.length > 0) {
+      await Promise.all(missing.map(p =>
+        supabase.from('votes').insert({ meeting_id: meetingId, voter_id: p.id, target_id: null }).select()
+      ))
+    }
+
+    // Tally
+    const tally: Record<string, number> = {}
+    for (const v of votes) {
+      if (v.target_id) tally[v.target_id] = (tally[v.target_id] || 0) + 1
+    }
+
+    let maxVotes = 0
+    let ejectedId: string | null = null
+    let tie = false
+    for (const [pid, count] of Object.entries(tally)) {
+      if (count > maxVotes) { maxVotes = count; ejectedId = pid; tie = false }
+      else if (count === maxVotes) { tie = true }
+    }
+
+    const ejected = ejectedId && !tie ? players.find(p => p.id === ejectedId) ?? null : null
+    setResult({ ejected, tie: tie || maxVotes === 0 })
+    setPhase('results')
+
+    setTimeout(onEnd, 4000)
+  }, [meetingId, players, onEnd])
+
+  // Subscribe to meeting timer start + votes
   useEffect(() => {
     const channel = supabase
-      .channel(`meeting-timer-${meetingId}`)
+      .channel(`discussion-${meetingId}`)
       .on('postgres_changes', {
-        event: 'UPDATE',
-        schema: 'public',
-        table: 'meetings',
-        filter: `id=eq.${meetingId}`,
+        event: 'UPDATE', schema: 'public', table: 'meetings', filter: `id=eq.${meetingId}`,
       }, (payload) => {
         if (payload.new.status === 'timer_started') setTimerRunning(true)
+      })
+      .on('postgres_changes', {
+        event: 'INSERT', schema: 'public', table: 'votes', filter: `meeting_id=eq.${meetingId}`,
+      }, (payload) => {
+        setVotedPlayerIds(prev => new Set([...prev, payload.new.voter_id]))
       })
       .subscribe()
     return () => { supabase.removeChannel(channel) }
   }, [meetingId])
 
-  // Countdown — only runs when timerRunning
+  // Countdown
   useEffect(() => {
     if (!timerRunning) return
     const interval = setInterval(() => {
       setSeconds(prev => {
-        if (prev <= 1) { clearInterval(interval); onEnd(); return 0 }
+        if (prev <= 1) { clearInterval(interval); tallyVotes(); return 0 }
         return prev - 1
       })
     }, 1000)
     return () => clearInterval(interval)
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [timerRunning])
+  }, [timerRunning, tallyVotes])
 
   async function startTimer() {
     setStarting(true)
@@ -59,6 +142,12 @@ export default function DiscussionScreen({ gameCode, callerName, meetingId, isCa
     setStarting(false)
   }
 
+  async function submitVote(targetId: string | null) {
+    setPhase('voted')
+    await supabase.from('votes').insert({ meeting_id: meetingId, voter_id: playerId, target_id: targetId })
+  }
+
+  const myVoted = votedPlayerIds.has(playerId)
   const mins = Math.floor(seconds / 60)
   const secs = seconds % 60
   const timeStr = `${mins}:${secs.toString().padStart(2, '0')}`
@@ -66,77 +155,150 @@ export default function DiscussionScreen({ gameCode, callerName, meetingId, isCa
 
   return (
     <div
-      className="fixed inset-0 z-50 flex flex-col items-center justify-between px-6 py-10"
+      className="fixed inset-0 z-50 flex flex-col px-4 py-8 overflow-y-auto"
       style={{ background: 'linear-gradient(to bottom, #1a0000, #2d0000, #1a0000)' }}
     >
       {/* Header */}
-      <div className="w-full max-w-sm text-center">
-        <p className="text-red-400 text-xs uppercase tracking-[0.3em] mb-2 font-bold">Game Code: {gameCode}</p>
-        <h1
-          className="text-4xl font-black uppercase tracking-widest text-white"
-          style={{ textShadow: '0 0 40px rgba(255,60,60,0.9)' }}
-        >
+      <div className="text-center mb-4">
+        <p className="text-red-400 text-xs uppercase tracking-[0.3em] mb-1 font-bold">Game: {gameCode}</p>
+        <h1 className="text-3xl font-black uppercase tracking-widest text-white"
+          style={{ textShadow: '0 0 30px rgba(255,60,60,0.9)' }}>
           Emergency Meeting
         </h1>
-        <p className="text-red-300 text-base mt-2 font-medium">
-          Called by <span className="text-white font-bold">{callerName}</span>
-        </p>
+        <p className="text-red-300 text-sm mt-1">Called by <span className="text-white font-bold">{callerName}</span></p>
       </div>
 
-      {/* Middle */}
-      <div className="flex flex-col items-center gap-4 w-full max-w-sm">
-        {!timerRunning ? (
-          <div className="text-center flex flex-col items-center gap-6">
-            <p className="text-red-300 text-base uppercase tracking-widest animate-pulse">
-              {isCaller ? 'Walk to the meeting room...' : `Waiting for ${callerName} to start the timer...`}
-            </p>
-            {isCaller && (
-              <button
-                onClick={startTimer}
-                disabled={starting}
-                className="px-10 py-5 rounded-2xl font-black text-xl uppercase tracking-widest transition-all active:scale-95 disabled:opacity-50"
-                style={{
-                  background: 'linear-gradient(to bottom, #16a34a, #15803d)',
-                  color: '#fff',
-                  boxShadow: '0 0 30px rgba(22,163,74,0.6)',
-                }}
-              >
-                {starting ? 'Starting...' : '▶ Start Timer'}
-              </button>
-            )}
+      {/* Timer / waiting */}
+      {!timerRunning ? (
+        <div className="text-center flex flex-col items-center gap-4 my-4">
+          <p className="text-red-300 text-sm uppercase tracking-widest animate-pulse">
+            {isCaller ? 'Everyone here? Start the timer.' : `Waiting for ${callerName} to start the timer...`}
+          </p>
+          {isCaller && (
+            <button onClick={startTimer} disabled={starting}
+              className="px-8 py-4 rounded-2xl font-black text-lg uppercase tracking-widest active:scale-95 disabled:opacity-50"
+              style={{ background: 'linear-gradient(to bottom, #16a34a, #15803d)', color: '#fff', boxShadow: '0 0 20px rgba(22,163,74,0.5)' }}>
+              {starting ? 'Starting...' : '▶ Start Timer'}
+            </button>
+          )}
+        </div>
+      ) : (
+        <div className="flex items-center justify-center gap-4 my-2">
+          <div className="text-5xl font-black tabular-nums"
+            style={{ color: seconds <= 30 ? '#ff4444' : '#fff', textShadow: seconds <= 30 ? '0 0 20px rgba(255,0,0,0.9)' : 'none' }}>
+            {timeStr}
           </div>
-        ) : (
+          <div className="flex-1 h-2 rounded-full bg-white/10 overflow-hidden">
+            <div className="h-full rounded-full transition-all duration-1000"
+              style={{ width: `${pct}%`, background: seconds <= 30 ? '#ef4444' : '#fff' }} />
+          </div>
+        </div>
+      )}
+
+      {/* Results */}
+      {phase === 'results' && result && (
+        <div className="text-center my-4 py-6 rounded-2xl bg-black/40 border border-white/10">
+          <p className="text-4xl mb-3">{result.ejected ? '💀' : '😮'}</p>
+          <p className="text-2xl font-black text-white uppercase tracking-wider">
+            {result.ejected ? `${result.ejected.name} ejected!` : 'No one was ejected.'}
+          </p>
+          {result.tie && <p className="text-red-300 text-sm mt-1">It was a tie.</p>}
+          <p className="text-gray-400 text-sm mt-2 animate-pulse">Returning to game...</p>
+        </div>
+      )}
+
+      {/* Player grid */}
+      {phase !== 'results' && (
+        <div className="grid grid-cols-3 gap-3 my-4">
+          {players.map(p => {
+            const icon = getIcon(p)
+            const isSelected = selectedId === p.id
+            const hasVoted = votedPlayerIds.has(p.id)
+            const isMe = p.id === playerId
+            const selectable = phase === 'voting' && !myVoted && !isMe
+
+            return (
+              <button
+                key={p.id}
+                onClick={() => selectable && setSelectedId(isSelected ? null : p.id)}
+                disabled={!selectable}
+                className={`flex flex-col items-center gap-2 p-3 rounded-2xl border-2 transition-all active:scale-95 ${
+                  isSelected ? 'border-yellow-400 bg-yellow-400/10' :
+                  isMe ? 'border-blue-500/50 bg-blue-900/20' :
+                  'border-white/10 bg-white/5'
+                } ${!selectable ? 'opacity-70' : ''}`}
+              >
+                {/* Icon */}
+                <div className="w-14 h-14 rounded-full flex items-center justify-center text-3xl relative"
+                  style={{ background: icon.bg, border: isSelected ? '2px solid #facc15' : '2px solid rgba(255,255,255,0.1)' }}>
+                  {icon.emoji}
+                  {hasVoted && (
+                    <div className="absolute -top-1 -right-1 w-5 h-5 rounded-full bg-green-500 flex items-center justify-center">
+                      <svg className="w-3 h-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                      </svg>
+                    </div>
+                  )}
+                </div>
+                <p className={`text-xs font-bold truncate w-full text-center ${isMe ? 'text-blue-300' : 'text-white'}`}>
+                  {p.name}{isMe ? ' (you)' : ''}
+                </p>
+              </button>
+            )
+          })}
+        </div>
+      )}
+
+      {/* Vote count */}
+      {timerRunning && phase !== 'results' && (
+        <p className="text-center text-gray-400 text-xs uppercase tracking-wider mb-2">
+          {votedPlayerIds.size} / {players.length} voted
+        </p>
+      )}
+
+      {/* Confirm vote overlay */}
+      {phase === 'confirming' && selectedId && (
+        <div className="fixed inset-0 z-60 flex items-center justify-center bg-black/80 px-6">
+          <div className="bg-[#1a1a2e] rounded-2xl p-6 w-full max-w-sm border border-white/10 text-center flex flex-col gap-4">
+            <p className="text-white font-bold text-lg">Vote for <span className="text-yellow-400">{players.find(p => p.id === selectedId)?.name}</span>?</p>
+            <button onClick={() => submitVote(selectedId)}
+              className="w-full py-4 rounded-xl bg-red-600 hover:bg-red-500 text-white font-black text-lg uppercase tracking-wider active:scale-95">
+              Confirm Vote
+            </button>
+            <button onClick={() => setPhase('voting')}
+              className="w-full py-3 text-gray-400 hover:text-white text-sm uppercase tracking-wider">
+              Cancel
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Bottom actions */}
+      <div className="flex flex-col gap-3 mt-auto pt-4">
+        {phase === 'voting' && !myVoted && (
           <>
-            <div
-              className="text-8xl font-black tabular-nums"
-              style={{
-                color: seconds <= 30 ? '#ff4444' : '#ffffff',
-                textShadow: seconds <= 30 ? '0 0 40px rgba(255,0,0,0.9)' : '0 0 20px rgba(255,255,255,0.4)',
-              }}
-            >
-              {timeStr}
-            </div>
-            <div className="w-64 h-2 rounded-full bg-white/10 overflow-hidden">
-              <div
-                className="h-full rounded-full transition-all duration-1000"
-                style={{ width: `${pct}%`, background: seconds <= 30 ? '#ef4444' : '#ffffff' }}
-              />
-            </div>
-            <p className="text-red-300 text-sm uppercase tracking-widest">
-              {seconds <= 0 ? "Time's up!" : 'Discuss...'}
-            </p>
+            <button
+              onClick={() => selectedId && setPhase('confirming')}
+              disabled={!selectedId}
+              className="w-full py-4 rounded-xl font-black text-lg uppercase tracking-widest active:scale-95 disabled:opacity-30 transition-all"
+              style={{ background: selectedId ? 'linear-gradient(to bottom, #dc2626, #991b1b)' : '#374151', color: '#fff' }}>
+              Vote
+            </button>
+            <button onClick={() => submitVote(null)}
+              className="w-full py-3 rounded-xl bg-white/10 hover:bg-white/20 text-gray-300 font-bold uppercase tracking-wider active:scale-95 transition-all border border-white/10">
+              Skip Vote
+            </button>
           </>
         )}
-      </div>
-
-      {/* End button */}
-      <div className="w-full max-w-sm">
-        <button
-          onClick={onEnd}
-          className="w-full py-4 rounded-xl bg-red-800 hover:bg-red-700 active:scale-95 text-white font-black text-lg uppercase tracking-widest transition-all shadow-lg shadow-red-900/60 border border-red-600/40"
-        >
-          End Discussion
-        </button>
+        {(phase === 'voted' || myVoted) && phase !== 'results' && (
+          <p className="text-center text-gray-400 text-sm animate-pulse uppercase tracking-wider">Vote submitted. Waiting for others...</p>
+        )}
+        {phase === 'waiting' && (
+          <button onClick={onEnd}
+            className="w-full py-4 rounded-xl bg-red-900/60 hover:bg-red-800/60 text-white font-black text-base uppercase tracking-widest active:scale-95 border border-red-700/30">
+            End Discussion
+          </button>
+        )}
       </div>
     </div>
   )
