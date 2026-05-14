@@ -4,7 +4,7 @@ import { useRouter, useParams } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import DiscussionScreen from '@/components/DiscussionScreen'
 import TaskChecklist from '@/components/TaskChecklist'
-import { playEmergencyMeeting, unlockAudio } from '@/lib/sounds'
+import { playEmergencyMeeting, playRoleReveal, unlockAudio } from '@/lib/sounds'
 import type { Player, Game } from '@/types/game'
 
 type Screen = 'game' | 'discussion'
@@ -64,6 +64,7 @@ export default function GamePage() {
       const { data: allPlayersData } = await supabase.from('players').select().eq('game_id', gameData.id)
       if (allPlayersData) setGamePlayers(allPlayersData)
       setLoading(false)
+      playRoleReveal()
 
       // Subscribe to meetings for this game
       channel = supabase

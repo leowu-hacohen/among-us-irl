@@ -1,5 +1,14 @@
 let ctx: AudioContext | null = null
 let keepAlive: AudioBufferSourceNode | null = null
+let roleRevealAudio: HTMLAudioElement | null = null
+
+function getRoleRevealAudio(): HTMLAudioElement {
+  if (!roleRevealAudio) {
+    roleRevealAudio = new Audio('/sounds/role-reveal.mp3')
+    roleRevealAudio.preload = 'auto'
+  }
+  return roleRevealAudio
+}
 
 function getCtx(): AudioContext {
   if (!ctx) {
@@ -19,6 +28,12 @@ export function unlockAudio() {
     src.buffer = buf
     src.connect(c.destination)
     src.start(0)
+
+    // Preload and unlock the HTML5 audio element on the same gesture
+    try {
+      const ra = getRoleRevealAudio()
+      ra.play().then(() => { ra.pause(); ra.currentTime = 0 }).catch(() => {})
+    } catch {}
 
     // Loop 1s of silence to keep context running on iOS
     if (!keepAlive) {
@@ -44,6 +59,14 @@ function tone(freq: number, type: OscillatorType, start: number, duration: numbe
   gain.connect(c.destination)
   osc.start(start)
   osc.stop(start + duration)
+}
+
+export function playRoleReveal() {
+  try {
+    const audio = getRoleRevealAudio()
+    audio.currentTime = 0
+    audio.play().catch(() => {})
+  } catch {}
 }
 
 export function playEmergencyMeeting() {

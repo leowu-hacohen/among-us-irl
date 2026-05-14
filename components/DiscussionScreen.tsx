@@ -1,6 +1,6 @@
 'use client'
 import { useEffect, useState, useCallback, useRef } from 'react'
-import { playEmergencyMeeting } from '@/lib/sounds'
+import { playEmergencyMeeting, playRoleReveal } from '@/lib/sounds'
 import { supabase } from '@/lib/supabase'
 import type { Player } from '@/types/game'
 
@@ -63,6 +63,7 @@ export default function DiscussionScreen({
   }, [gameId])
 
   useEffect(() => { if (timerRunning) setPhase('voting') }, [timerRunning])
+  useEffect(() => { if (phase === 'results') playRoleReveal() }, [phase])
 
   const tallyVotes = useCallback(async () => {
     if (tallyCalledRef.current) return
