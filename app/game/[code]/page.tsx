@@ -194,7 +194,7 @@ export default function GamePage() {
         </div>
 
         <div className="flex-1 overflow-y-auto">
-          <TaskChecklist gameId={game.id} />
+          <TaskChecklist gameId={game.id} playerId={player.id} />
         </div>
 
         {/* Emergency meeting button — fixed at bottom */}

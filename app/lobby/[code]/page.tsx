@@ -89,15 +89,17 @@ export default function LobbyPage() {
     if (!game || players.length < 3) return
     setStarting(true)
 
-    // Insert all shared tasks (no player assignment)
-    const taskRows = TASK_POOL.map(t => ({
-      game_id: game.id,
-      player_id: null,
-      name: t.name,
-      location: t.location,
-      description: t.description,
-      is_complete: false,
-    }))
+    // Insert a copy of all tasks for each player individually
+    const taskRows = players.flatMap(player =>
+      TASK_POOL.map(t => ({
+        game_id: game.id,
+        player_id: player.id,
+        name: t.name,
+        location: t.location,
+        description: t.description,
+        is_complete: false,
+      }))
+    )
     await supabase.from('tasks').insert(taskRows)
 
     // Update game status — this triggers all clients to navigate

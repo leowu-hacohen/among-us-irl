@@ -5,19 +5,19 @@ import type { Task } from '@/types/game'
 
 interface Props {
   gameId: string
+  playerId: string
 }
 
-export default function TaskChecklist({ gameId }: Props) {
-  const [tasks, setTasks] = useState<Task[]>([])
+export default function TaskChecklist({ gameId, playerId }: Props) {
+  const [myTasks, setMyTasks] = useState<Task[]>([])
+  const [allTasks, setAllTasks] = useState<Task[]>([])
   const [loading, setLoading] = useState(true)
 
   async function fetchTasks() {
-    const { data } = await supabase
-      .from('tasks')
-      .select()
-      .eq('game_id', gameId)
-      .order('name')
-    if (data) setTasks(data as Task[])
+    const { data: mine } = await supabase.from('tasks').select().eq('game_id', gameId).eq('player_id', playerId).order('name')
+    const { data: all } = await supabase.from('tasks').select().eq('game_id', gameId)
+    if (mine) setMyTasks(mine as Task[])
+    if (all) setAllTasks(all as Task[])
   }
 
   useEffect(() => {
@@ -43,8 +43,8 @@ export default function TaskChecklist({ gameId }: Props) {
     await supabase.from('tasks').update({ is_complete: true }).eq('id', taskId)
   }
 
-  const total = tasks.length
-  const done = tasks.filter(t => t.is_complete).length
+  const total = allTasks.length
+  const done = allTasks.filter(t => t.is_complete).length
   const pct = total === 0 ? 0 : Math.round((done / total) * 100)
 
   if (loading) {
@@ -71,9 +71,9 @@ export default function TaskChecklist({ gameId }: Props) {
         </div>
       </div>
 
-      {/* Task list */}
+      {/* Task list — player's own tasks */}
       <div className="flex flex-col gap-2">
-        {tasks.map(task => (
+        {myTasks.map(task => (
           <div
             key={task.id}
             className={`rounded-xl p-4 border transition-all ${task.is_complete ? 'bg-green-900/30 border-green-700/40' : 'bg-[#1a1a2e] border-white/10'}`}
