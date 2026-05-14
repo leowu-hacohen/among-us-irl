@@ -4,6 +4,7 @@ import { supabase } from '@/lib/supabase'
 import SabotagePanel from './SabotagePanel'
 import KillButton from './KillButton'
 import type { Player, Task, Sabotage } from '@/types/game'
+import { playEmergencyMeeting } from '@/lib/sounds'
 
 interface Props {
   player: Player
@@ -80,6 +81,7 @@ export default function ImpostorUI({ player, gameId, gameCode }: Props) {
   async function callEmergencyMeeting() {
     if (callingMeeting) return
     setCallingMeeting(true)
+    playEmergencyMeeting()
     await supabase.from('meetings').insert({
       game_id: gameId,
       type: 'emergency',

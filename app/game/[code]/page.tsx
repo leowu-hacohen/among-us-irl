@@ -5,6 +5,7 @@ import { supabase } from '@/lib/supabase'
 import CrewmateUI from '@/components/CrewmateUI'
 import ImpostorUI from '@/components/ImpostorUI'
 import type { Player, Game, Task, Sabotage } from '@/types/game'
+import { playEmergencyMeeting, unlockAudio } from '@/lib/sounds'
 
 export default function GamePage() {
   const router = useRouter()
@@ -16,6 +17,12 @@ export default function GamePage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [gameOver, setGameOver] = useState<{ winner: 'crewmates' | 'impostors'; reason: string } | null>(null)
+
+  useEffect(() => {
+    const handler = () => { unlockAudio(); window.removeEventListener('touchstart', handler) }
+    window.addEventListener('touchstart', handler)
+    return () => window.removeEventListener('touchstart', handler)
+  }, [])
 
   const checkWinConditions = useCallback(async (gameId: string) => {
     const { data: players } = await supabase.from('players').select().eq('game_id', gameId)
@@ -98,6 +105,7 @@ export default function GamePage() {
         }, (payload) => {
           const meeting = payload.new
           if (meeting.status === 'voting') {
+            playEmergencyMeeting()
             router.push(`/vote/${code}`)
           }
         })

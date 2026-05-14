@@ -2,6 +2,7 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import type { Sabotage } from '@/types/game'
+import { playSabotage } from '@/lib/sounds'
 
 interface Props {
   sabotage: Sabotage
@@ -37,12 +38,7 @@ export default function SabotageAlert({ sabotage, playerId, onFixed }: Props) {
     instruction: 'Find and fix the sabotage immediately!',
   }
 
-  // Vibrate on mount
-  useEffect(() => {
-    if (typeof navigator !== 'undefined' && 'vibrate' in navigator) {
-      navigator.vibrate([200, 100, 200, 100, 200])
-    }
-  }, [])
+  useEffect(() => { playSabotage() }, [])
 
   // Countdown for reactor
   useEffect(() => {

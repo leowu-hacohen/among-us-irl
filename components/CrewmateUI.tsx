@@ -4,6 +4,7 @@ import { supabase } from '@/lib/supabase'
 import TaskList from './TaskList'
 import SabotageAlert from './SabotageAlert'
 import type { Player, Task, Sabotage } from '@/types/game'
+import { playEmergencyMeeting, playBodyReport } from '@/lib/sounds'
 
 interface Props {
   player: Player
@@ -65,6 +66,7 @@ export default function CrewmateUI({ player, gameId, gameCode }: Props) {
   async function callEmergencyMeeting() {
     if (callingMeeting) return
     setCallingMeeting(true)
+    playEmergencyMeeting()
     await supabase.from('meetings').insert({
       game_id: gameId,
       type: 'emergency',
@@ -78,6 +80,7 @@ export default function CrewmateUI({ player, gameId, gameCode }: Props) {
     if (callingMeeting) return
     setCallingMeeting(true)
     setShowReport(false)
+    playBodyReport()
     await supabase.from('meetings').insert({
       game_id: gameId,
       type: 'report',

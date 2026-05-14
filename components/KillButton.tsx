@@ -2,6 +2,7 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
 import type { Player } from '@/types/game'
+import { playKill } from '@/lib/sounds'
 
 interface Props {
   target: Player
@@ -17,6 +18,7 @@ export default function KillButton({ target, onKill, killCooldown, setKillCooldo
   async function handleKill() {
     if (killing || killCooldown > 0) return
     setKilling(true)
+    playKill()
     await supabase.from('players').update({ is_alive: false }).eq('id', target.id)
     setConfirmed(true)
     setKillCooldown(30)

@@ -2,6 +2,7 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
 import type { Sabotage } from '@/types/game'
+import { playSabotage } from '@/lib/sounds'
 
 interface Props {
   gameId: string
@@ -26,6 +27,7 @@ export default function SabotagePanel({ gameId, playerId, activeSabotage }: Prop
   async function triggerSabotage(type: string) {
     if (isDisabled) return
     setTriggering(true)
+    playSabotage()
     await supabase.from('sabotages').insert({
       game_id: gameId,
       type,
