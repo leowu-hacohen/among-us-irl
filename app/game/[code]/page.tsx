@@ -23,6 +23,8 @@ export default function GamePage() {
   const [callingMeeting, setCallingMeeting] = useState(false)
   const [playSoundOnDiscussion, setPlaySoundOnDiscussion] = useState(false)
   const [soundEnabled, setSoundEnabled] = useState(false)
+  const [currentMeetingId, setCurrentMeetingId] = useState('')
+  const [isCaller, setIsCaller] = useState(false)
 
 
   useEffect(() => {
@@ -78,6 +80,8 @@ export default function GamePage() {
           if (meeting.called_by === myId) return
 
           setMeetingCallerName(callerName)
+          setCurrentMeetingId(meeting.id)
+          setIsCaller(false)
           setPlaySoundOnDiscussion(true)
           setScreen('discussion')
         })
@@ -108,6 +112,9 @@ export default function GamePage() {
     })
 
     // Show discussion screen immediately for caller (skip alert)
+    const { data: inserted } = await supabase.from('meetings').select('id').eq('game_id', game.id).order('created_at', { ascending: false }).limit(1).single()
+    setCurrentMeetingId(inserted?.id ?? '')
+    setIsCaller(true)
     setMeetingCallerName(player.name)
     setScreen('discussion')
     setCallingMeeting(false)
@@ -116,6 +123,8 @@ export default function GamePage() {
   function handleDiscussionEnd() {
     setScreen('game')
     setMeetingCallerName('')
+    setCurrentMeetingId('')
+    setIsCaller(false)
     setPlaySoundOnDiscussion(false)
   }
 
@@ -146,6 +155,8 @@ export default function GamePage() {
         <DiscussionScreen
           gameCode={code}
           callerName={meetingCallerName}
+          meetingId={currentMeetingId}
+          isCaller={isCaller}
           onEnd={handleDiscussionEnd}
           playSound={playSoundOnDiscussion}
         />
