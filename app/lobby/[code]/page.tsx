@@ -2,7 +2,7 @@
 import { useEffect, useState, useCallback } from 'react'
 import { useRouter, useParams } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
-import { assignTasks } from '@/lib/tasks'
+import { TASK_POOL } from '@/lib/tasks'
 import type { Game, Player } from '@/types/game'
 
 const COLOR_MAP: Record<string, string> = {
@@ -89,30 +89,16 @@ export default function LobbyPage() {
     if (!game || players.length < 3) return
     setStarting(true)
 
-    // Shuffle players
-    const shuffled = [...players].sort(() => Math.random() - 0.5)
-    const impostorCount = shuffled.length >= 7 ? 2 : 1
-    const impostors = shuffled.slice(0, impostorCount)
-    const crewmates = shuffled.slice(impostorCount)
-
-    // Assign roles
-    for (const imp of impostors) {
-      await supabase.from('players').update({ role: 'impostor' }).eq('id', imp.id)
-    }
-    for (const crew of crewmates) {
-      await supabase.from('players').update({ role: 'crewmate' }).eq('id', crew.id)
-      // Assign tasks
-      const tasks = assignTasks(game.task_count)
-      const taskRows = tasks.map(t => ({
-        game_id: game.id,
-        player_id: crew.id,
-        name: t.name,
-        location: t.location,
-        description: t.description,
-        is_complete: false,
-      }))
-      await supabase.from('tasks').insert(taskRows)
-    }
+    // Insert all shared tasks (no player assignment)
+    const taskRows = TASK_POOL.map(t => ({
+      game_id: game.id,
+      player_id: null,
+      name: t.name,
+      location: t.location,
+      description: t.description,
+      is_complete: false,
+    }))
+    await supabase.from('tasks').insert(taskRows)
 
     // Update game status — this triggers all clients to navigate
     await supabase.from('games').update({ status: 'playing' }).eq('id', game.id)

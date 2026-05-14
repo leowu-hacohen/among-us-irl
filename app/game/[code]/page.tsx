@@ -1,18 +1,14 @@
 'use client'
-import { useEffect, useState, useCallback } from 'react'
+import { useEffect, useState } from 'react'
 import { useRouter, useParams } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
-import CrewmateUI from '@/components/CrewmateUI'
-import ImpostorUI from '@/components/ImpostorUI'
 import MeetingAlert from '@/components/MeetingAlert'
-import type { Player, Game, Task, Sabotage } from '@/types/game'
-import { unlockAudio } from '@/lib/sounds'
+import DiscussionScreen from '@/components/DiscussionScreen'
+import TaskChecklist from '@/components/TaskChecklist'
+import { unlockAudio, playEmergencyMeeting } from '@/lib/sounds'
+import type { Player, Game } from '@/types/game'
 
-interface MeetingInfo {
-  type: 'emergency' | 'report'
-  callerName: string
-  reportedName?: string
-}
+type Screen = 'game' | 'alert' | 'discussion'
 
 export default function GamePage() {
   const router = useRouter()
@@ -23,46 +19,15 @@ export default function GamePage() {
   const [game, setGame] = useState<Game | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
-  const [gameOver, setGameOver] = useState<{ winner: 'crewmates' | 'impostors'; reason: string } | null>(null)
-  const [meetingAlert, setMeetingAlert] = useState<MeetingInfo | null>(null)
+  const [screen, setScreen] = useState<Screen>('game')
+  const [meetingCallerName, setMeetingCallerName] = useState('')
+  const [callingMeeting, setCallingMeeting] = useState(false)
 
+  // Unlock audio on first touch
   useEffect(() => {
     const handler = () => { unlockAudio(); window.removeEventListener('touchstart', handler) }
     window.addEventListener('touchstart', handler)
     return () => window.removeEventListener('touchstart', handler)
-  }, [])
-
-  const checkWinConditions = useCallback(async (gameId: string) => {
-    const { data: players } = await supabase.from('players').select().eq('game_id', gameId)
-    if (!players) return
-
-    const alivePlayers = players.filter(p => p.is_alive)
-    const aliveImpostors = alivePlayers.filter(p => p.role === 'impostor')
-    const aliveCrewmates = alivePlayers.filter(p => p.role === 'crewmate')
-
-    // Impostors win if alive impostors >= alive crewmates
-    if (aliveImpostors.length > 0 && aliveImpostors.length >= aliveCrewmates.length) {
-      await supabase.from('games').update({ status: 'ended' }).eq('id', gameId)
-      setGameOver({ winner: 'impostors', reason: 'Impostors have overrun the crew!' })
-      return
-    }
-
-    // Crewmates win if all impostors ejected
-    if (aliveImpostors.length === 0) {
-      await supabase.from('games').update({ status: 'ended' }).eq('id', gameId)
-      setGameOver({ winner: 'crewmates', reason: 'All impostors have been ejected!' })
-      return
-    }
-
-    // Check tasks complete
-    const { data: tasks } = await supabase.from('tasks').select().eq('game_id', gameId)
-    if (tasks && tasks.length > 0) {
-      const allDone = tasks.every((t: Task) => t.is_complete)
-      if (allDone) {
-        await supabase.from('games').update({ status: 'ended' }).eq('id', gameId)
-        setGameOver({ winner: 'crewmates', reason: 'All tasks completed!' })
-      }
-    }
   }, [])
 
   useEffect(() => {
@@ -82,12 +47,6 @@ export default function GamePage() {
       if (gameError || !gameData) { setError('Game not found'); setLoading(false); return }
       setGame(gameData)
 
-      if (gameData.status === 'ended') {
-        setGameOver({ winner: 'crewmates', reason: 'Game over.' })
-        setLoading(false)
-        return
-      }
-
       // Fetch player
       const { data: playerData, error: playerError } = await supabase
         .from('players')
@@ -99,12 +58,9 @@ export default function GamePage() {
       setPlayer(playerData)
       setLoading(false)
 
-      // Check win conditions initially
-      await checkWinConditions(gameData.id)
-
-      // Subscribe to all relevant tables
+      // Subscribe to meetings for this game
       channel = supabase
-        .channel(`game-${gameData.id}`)
+        .channel(`game-meetings-${gameData.id}`)
         .on('postgres_changes', {
           event: 'INSERT',
           schema: 'public',
@@ -113,45 +69,21 @@ export default function GamePage() {
         }, async (payload) => {
           const meeting = payload.new
           if (meeting.status !== 'voting') return
-          const { data: allPlayers } = await supabase.from('players').select().eq('game_id', gameData.id)
+
+          // Find caller name
+          const { data: allPlayers } = await supabase
+            .from('players')
+            .select()
+            .eq('game_id', gameData.id)
           const caller = allPlayers?.find((p: Player) => p.id === meeting.called_by)
-          const body = meeting.reported_body ? allPlayers?.find((p: Player) => p.id === meeting.reported_body) : null
-          setMeetingAlert({
-            type: meeting.type,
-            callerName: caller?.name ?? 'Someone',
-            reportedName: body?.name,
-          })
-        })
-        .on('postgres_changes', {
-          event: 'UPDATE',
-          schema: 'public',
-          table: 'games',
-          filter: `id=eq.${gameData.id}`,
-        }, (payload) => {
-          const updated = payload.new as Game
-          setGame(updated)
-          if (updated.status === 'ended') {
-            setGameOver({ winner: 'crewmates', reason: 'Game ended.' })
-          }
-        })
-        .on('postgres_changes', {
-          event: 'UPDATE',
-          schema: 'public',
-          table: 'players',
-          filter: `game_id=eq.${gameData.id}`,
-        }, async () => {
-          // Re-fetch my player
-          const { data: updated } = await supabase.from('players').select().eq('id', playerId).single()
-          if (updated) setPlayer(updated)
-          await checkWinConditions(gameData.id)
-        })
-        .on('postgres_changes', {
-          event: 'UPDATE',
-          schema: 'public',
-          table: 'tasks',
-          filter: `game_id=eq.${gameData.id}`,
-        }, async () => {
-          await checkWinConditions(gameData.id)
+          const callerName = caller?.name ?? 'Someone'
+
+          // If this client called the meeting, they already see DiscussionScreen — skip
+          const myId = localStorage.getItem('playerId')
+          if (meeting.called_by === myId) return
+
+          setMeetingCallerName(callerName)
+          setScreen('alert')
         })
         .subscribe()
     }
@@ -161,7 +93,39 @@ export default function GamePage() {
     return () => {
       if (channel) supabase.removeChannel(channel)
     }
-  }, [code, router, checkWinConditions])
+  }, [code, router])
+
+  async function callMeeting() {
+    if (!game || !player || callingMeeting) return
+    setCallingMeeting(true)
+
+    // Play alarm immediately for the caller
+    playEmergencyMeeting()
+
+    // Insert meeting — this triggers the subscription on everyone else's phones
+    await supabase.from('meetings').insert({
+      game_id: game.id,
+      type: 'emergency',
+      called_by: player.id,
+      reported_body: null,
+      status: 'voting',
+    })
+
+    // Show discussion screen immediately for caller (skip alert)
+    setMeetingCallerName(player.name)
+    setScreen('discussion')
+    setCallingMeeting(false)
+  }
+
+  function handleAlertDismiss() {
+    // After tapping the alert, show discussion screen
+    setScreen('discussion')
+  }
+
+  function handleDiscussionEnd() {
+    setScreen('game')
+    setMeetingCallerName('')
+  }
 
   if (loading) {
     return (
@@ -182,55 +146,65 @@ export default function GamePage() {
     )
   }
 
-  if (gameOver) {
-    const isImpostor = player?.role === 'impostor'
-    const won = (gameOver.winner === 'impostors' && isImpostor) || (gameOver.winner === 'crewmates' && !isImpostor)
-    return (
-      <div className="min-h-screen bg-[#0d0d1a] flex flex-col items-center justify-center px-6 text-center">
-        <div className="flex flex-col items-center gap-6 max-w-sm w-full">
-          <div className="text-7xl">{won ? '🎉' : '💀'}</div>
-          <div>
-            <h1
-              className={`text-4xl font-black uppercase tracking-widest ${won ? 'text-green-400' : 'text-red-400'}`}
-              style={{ textShadow: `0 0 20px ${won ? 'rgba(74,222,128,0.6)' : 'rgba(239,68,68,0.6)'}` }}
-            >
-              {won ? 'You Win!' : 'You Lose!'}
-            </h1>
-            <p className="text-xl font-bold text-white mt-2">
-              {gameOver.winner === 'impostors' ? 'Impostors Win' : 'Crewmates Win'}
-            </p>
-          </div>
-          <p className="text-gray-300 text-lg">{gameOver.reason}</p>
-          <button
-            onClick={() => router.push('/')}
-            className="w-full py-4 rounded-xl bg-red-600 hover:bg-red-500 text-white font-bold text-lg uppercase tracking-wider transition-all active:scale-95"
-          >
-            Play Again
-          </button>
-        </div>
-      </div>
-    )
-  }
-
   if (!player || !game) return null
 
   return (
     <>
-      {meetingAlert && (
+      {screen === 'alert' && (
         <MeetingAlert
-          type={meetingAlert.type}
-          callerName={meetingAlert.callerName}
-          reportedName={meetingAlert.reportedName}
-          onDismiss={() => {
-            setMeetingAlert(null)
-            router.push(`/vote/${code}`)
-          }}
+          callerName={meetingCallerName}
+          onDismiss={handleAlertDismiss}
         />
       )}
-      {player.role === 'impostor'
-        ? <ImpostorUI player={player} gameId={game.id} gameCode={code} />
-        : <CrewmateUI player={player} gameId={game.id} gameCode={code} />
-      }
+
+      {screen === 'discussion' && (
+        <DiscussionScreen
+          gameCode={code}
+          callerName={meetingCallerName}
+          onEnd={handleDiscussionEnd}
+        />
+      )}
+
+      {/* Main game view — always rendered, overlaid when alert/discussion is shown */}
+      <div className="min-h-screen bg-[#0d0d1a] flex flex-col pb-32">
+        {/* Header */}
+        <div className="px-4 pt-8 pb-4 flex items-center justify-between">
+          <div>
+            <p className="text-gray-500 text-xs uppercase tracking-widest">Playing as</p>
+            <p className="text-white font-bold text-lg">{player.name}</p>
+          </div>
+          <div className="text-right">
+            <p className="text-gray-500 text-xs uppercase tracking-widest">Game</p>
+            <p
+              className="text-2xl font-black tracking-widest"
+              style={{ color: '#ef4444', textShadow: '0 0 12px rgba(239,68,68,0.5)' }}
+            >
+              {code}
+            </p>
+          </div>
+        </div>
+
+        <div className="flex-1 overflow-y-auto">
+          <TaskChecklist gameId={game.id} />
+        </div>
+
+        {/* Emergency meeting button — fixed at bottom */}
+        <div className="fixed bottom-0 left-0 right-0 p-4 bg-gradient-to-t from-[#0d0d1a] via-[#0d0d1a]/95 to-transparent pt-8">
+          <button
+            onClick={callMeeting}
+            disabled={callingMeeting || screen !== 'game'}
+            className="w-full py-5 rounded-2xl font-black text-xl uppercase tracking-widest transition-all active:scale-95 disabled:opacity-50"
+            style={{
+              background: 'linear-gradient(to bottom, #dc2626, #991b1b)',
+              color: '#fff',
+              boxShadow: '0 0 30px rgba(220,38,38,0.5), 0 4px 20px rgba(0,0,0,0.5)',
+              textShadow: '0 1px 4px rgba(0,0,0,0.4)',
+            }}
+          >
+            {callingMeeting ? 'Calling...' : '🚨 Emergency Meeting'}
+          </button>
+        </div>
+      </div>
     </>
   )
 }
