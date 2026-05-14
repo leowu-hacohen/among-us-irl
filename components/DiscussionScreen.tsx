@@ -67,11 +67,11 @@ export default function DiscussionScreen({
 
     const currentPlayers = playersRef.current
 
-    // Auto-skip anyone who hasn't voted (ignore conflicts — unique constraint handles dupes)
+    // Auto-skip alive players who haven't voted (dead players don't vote)
     const { data: existingVotes } = await supabase.from('votes').select().eq('meeting_id', meetingId)
     const votes: VoteRecord[] = existingVotes ?? []
     const voterIds = new Set(votes.map(v => v.voter_id))
-    const missing = currentPlayers.filter(p => !voterIds.has(p.id))
+    const missing = currentPlayers.filter(p => p.is_alive && !voterIds.has(p.id))
 
     if (missing.length > 0) {
       const skipRows = missing.map(p => ({ meeting_id: meetingId, voter_id: p.id, target_id: null }))
@@ -94,6 +94,9 @@ export default function DiscussionScreen({
     }
 
     const ejected = ejectedId && !tie ? currentPlayers.find(p => p.id === ejectedId) ?? null : null
+    if (ejected) {
+      await supabase.from('players').update({ is_alive: false }).eq('id', ejected.id)
+    }
     setResult({ ejected, tie: tie || maxVotes === 0, votes })
     setPhase('results')
     setTimeout(onEnd, 6000)
@@ -113,8 +116,9 @@ export default function DiscussionScreen({
       }, (payload) => {
         setVotedPlayerIds(prev => {
           const next = new Set([...prev, payload.new.voter_id])
-          // If all players have voted, tally immediately
-          if (playersRef.current.length > 0 && next.size >= playersRef.current.length) {
+          // Tally immediately when all alive players have voted
+          const alivePlayers = playersRef.current.filter(p => p.is_alive)
+          if (alivePlayers.length > 0 && next.size >= alivePlayers.length) {
             tallyVotes()
           }
           return next
@@ -149,6 +153,7 @@ export default function DiscussionScreen({
   }
 
   const myVoted = votedPlayerIds.has(playerId)
+  const iAmAlive = players.find(p => p.id === playerId)?.is_alive ?? true
   const mins = Math.floor(seconds / 60)
   const secs = seconds % 60
   const timeStr = `${mins}:${secs.toString().padStart(2, '0')}`
@@ -247,12 +252,14 @@ export default function DiscussionScreen({
             const isSelected = selectedId === p.id
             const hasVoted = votedPlayerIds.has(p.id)
             const isMe = p.id === playerId
-            const selectable = phase === 'voting' && !myVoted && !isMe
+            const isDead = !p.is_alive
+            const selectable = phase === 'voting' && !myVoted && !isMe && !isDead && iAmAlive
             return (
               <button key={p.id}
                 onClick={() => selectable && setSelectedId(isSelected ? null : p.id)}
                 disabled={!selectable}
                 className={`flex flex-col items-center gap-2 p-3 rounded-2xl border-2 transition-all active:scale-95 ${
+                  isDead ? 'border-red-900/50 bg-black/40' :
                   isSelected ? 'border-yellow-400 bg-yellow-400/10' :
                   isMe ? 'border-blue-500/50 bg-blue-900/20' :
                   'border-white/10 bg-white/5'
@@ -260,7 +267,12 @@ export default function DiscussionScreen({
                 <div className="w-14 h-14 rounded-full flex items-center justify-center text-3xl relative"
                   style={{ background: icon.bg, border: isSelected ? '2px solid #facc15' : '2px solid rgba(255,255,255,0.1)' }}>
                   {icon.emoji}
-                  {hasVoted && (
+                  {isDead && (
+                    <div className="absolute inset-0 rounded-full bg-black/75 flex items-center justify-center">
+                      <span className="text-red-500 text-2xl font-black leading-none">✕</span>
+                    </div>
+                  )}
+                  {!isDead && hasVoted && (
                     <div className="absolute -top-1 -right-1 w-5 h-5 rounded-full bg-green-500 flex items-center justify-center">
                       <svg className="w-3 h-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
                         <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
@@ -268,7 +280,7 @@ export default function DiscussionScreen({
                     </div>
                   )}
                 </div>
-                <p className={`text-xs font-bold truncate w-full text-center ${isMe ? 'text-blue-300' : 'text-white'}`}>
+                <p className={`text-xs font-bold truncate w-full text-center ${isDead ? 'text-red-700 line-through' : isMe ? 'text-blue-300' : 'text-white'}`}>
                   {p.name}{isMe ? ' (you)' : ''}
                 </p>
               </button>
@@ -295,7 +307,7 @@ export default function DiscussionScreen({
       )}
 
       {/* Bottom actions */}
-      {phase === 'voting' && !myVoted && (
+      {phase === 'voting' && !myVoted && iAmAlive && (
         <div className="flex flex-col gap-3 mt-auto pt-4">
           <button onClick={() => selectedId && setPhase('confirming')} disabled={!selectedId}
             className="w-full py-4 rounded-xl font-black text-lg uppercase tracking-widest active:scale-95 disabled:opacity-30 transition-all"
@@ -308,7 +320,12 @@ export default function DiscussionScreen({
           </button>
         </div>
       )}
-      {(phase === 'voted' || myVoted) && phase !== 'results' && (
+      {phase === 'voting' && !iAmAlive && (
+        <p className="text-center text-red-700 text-sm uppercase tracking-wider mt-auto pt-4">
+          You were ejected. You may not vote.
+        </p>
+      )}
+      {(phase === 'voted' || myVoted) && iAmAlive && phase !== 'results' && (
         <p className="text-center text-gray-400 text-sm animate-pulse uppercase tracking-wider mt-auto pt-4">
           Vote submitted. Waiting for others...
         </p>
