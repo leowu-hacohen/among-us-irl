@@ -30,6 +30,7 @@ export default function GamePage() {
   const [bodyPickerOpen, setBodyPickerOpen] = useState(false)
   const [selectedBodyId, setSelectedBodyId] = useState<string | null>(null)
   const [reportingBody, setReportingBody] = useState(false)
+  const [reportError, setReportError] = useState('')
   const [meetingType, setMeetingType] = useState<'emergency' | 'report'>('emergency')
   const [reportedBodyName, setReportedBodyName] = useState('')
 
@@ -140,8 +141,16 @@ export default function GamePage() {
   async function reportBody() {
     if (!game || !player || !selectedBodyId || reportingBody) return
     setReportingBody(true)
-    setBodyPickerOpen(false)
+    setReportError('')
 
+    const { data: bodyCheck } = await supabase.from('players').select('is_alive').eq('id', selectedBodyId).single()
+    if (!bodyCheck || bodyCheck.is_alive) {
+      setReportError("That player hasn't marked themselves as killed.")
+      setReportingBody(false)
+      return
+    }
+
+    setBodyPickerOpen(false)
     playEmergencyMeeting()
 
     const bodyPlayer = gamePlayers.find(p => p.id === selectedBodyId)
@@ -300,7 +309,7 @@ export default function GamePage() {
               <div className="flex flex-col gap-2 overflow-y-auto">
                 {gamePlayers.filter(p => p.id !== player.id).map(p => (
                   <button key={p.id}
-                    onClick={() => setSelectedBodyId(p.id)}
+                    onClick={() => { setSelectedBodyId(p.id); setReportError('') }}
                     className={`w-full px-4 py-3 rounded-xl text-left font-bold border-2 transition-all ${
                       selectedBodyId === p.id
                         ? 'border-yellow-400 bg-yellow-400/10 text-yellow-300'
@@ -310,15 +319,18 @@ export default function GamePage() {
                   </button>
                 ))}
               </div>
+              {reportError && (
+                <p className="text-red-400 text-sm text-center font-medium">{reportError}</p>
+              )}
               <button
                 onClick={reportBody}
-                disabled={!selectedBodyId}
+                disabled={!selectedBodyId || reportingBody}
                 className="w-full py-4 rounded-xl font-black text-lg uppercase tracking-wider active:scale-95 disabled:opacity-30 mt-1"
                 style={{ background: 'linear-gradient(to bottom, #dc2626, #991b1b)', color: '#fff' }}>
-                Report Body
+                {reportingBody ? 'Checking...' : 'Report Body'}
               </button>
               <button
-                onClick={() => { setBodyPickerOpen(false); setSelectedBodyId(null) }}
+                onClick={() => { setBodyPickerOpen(false); setSelectedBodyId(null); setReportError('') }}
                 className="w-full py-3 text-gray-400 text-sm uppercase tracking-wider">
                 Cancel
               </button>
