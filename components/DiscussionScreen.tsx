@@ -1,16 +1,22 @@
 'use client'
 import { useEffect, useState } from 'react'
+import { playEmergencyMeeting } from '@/lib/sounds'
 
 interface Props {
   gameCode: string
   callerName: string
   onEnd: () => void
+  playSound?: boolean
 }
 
 const TOTAL = 120
 
-export default function DiscussionScreen({ gameCode, callerName, onEnd }: Props) {
+export default function DiscussionScreen({ gameCode, callerName, onEnd, playSound = false }: Props) {
   const [seconds, setSeconds] = useState(TOTAL)
+
+  useEffect(() => {
+    if (playSound) playEmergencyMeeting()
+  }, [playSound])
 
   useEffect(() => {
     const interval = setInterval(() => {

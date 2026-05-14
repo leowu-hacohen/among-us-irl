@@ -2,13 +2,12 @@
 import { useEffect, useState } from 'react'
 import { useRouter, useParams } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
-import MeetingAlert from '@/components/MeetingAlert'
 import DiscussionScreen from '@/components/DiscussionScreen'
 import TaskChecklist from '@/components/TaskChecklist'
 import { unlockAudio, playEmergencyMeeting } from '@/lib/sounds'
 import type { Player, Game } from '@/types/game'
 
-type Screen = 'game' | 'alert' | 'discussion'
+type Screen = 'game' | 'discussion'
 
 export default function GamePage() {
   const router = useRouter()
@@ -22,6 +21,7 @@ export default function GamePage() {
   const [screen, setScreen] = useState<Screen>('game')
   const [meetingCallerName, setMeetingCallerName] = useState('')
   const [callingMeeting, setCallingMeeting] = useState(false)
+  const [playSoundOnDiscussion, setPlaySoundOnDiscussion] = useState(false)
 
   // Unlock audio on first touch
   useEffect(() => {
@@ -78,12 +78,13 @@ export default function GamePage() {
           const caller = allPlayers?.find((p: Player) => p.id === meeting.called_by)
           const callerName = caller?.name ?? 'Someone'
 
-          // If this client called the meeting, they already see DiscussionScreen — skip
+          // Skip if this client called the meeting (they already see it)
           const myId = localStorage.getItem('playerId')
           if (meeting.called_by === myId) return
 
           setMeetingCallerName(callerName)
-          setScreen('alert')
+          setPlaySoundOnDiscussion(true)
+          setScreen('discussion')
         })
         .subscribe()
     }
@@ -117,14 +118,10 @@ export default function GamePage() {
     setCallingMeeting(false)
   }
 
-  function handleAlertDismiss() {
-    // After tapping the alert, show discussion screen
-    setScreen('discussion')
-  }
-
   function handleDiscussionEnd() {
     setScreen('game')
     setMeetingCallerName('')
+    setPlaySoundOnDiscussion(false)
   }
 
   if (loading) {
@@ -150,18 +147,12 @@ export default function GamePage() {
 
   return (
     <>
-      {screen === 'alert' && (
-        <MeetingAlert
-          callerName={meetingCallerName}
-          onDismiss={handleAlertDismiss}
-        />
-      )}
-
       {screen === 'discussion' && (
         <DiscussionScreen
           gameCode={code}
           callerName={meetingCallerName}
           onEnd={handleDiscussionEnd}
+          playSound={playSoundOnDiscussion}
         />
       )}
 
