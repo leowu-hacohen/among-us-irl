@@ -26,6 +26,12 @@ export default function GamePage() {
   const [currentMeetingId, setCurrentMeetingId] = useState('')
   const [isCaller, setIsCaller] = useState(false)
   const [confirmingKill, setConfirmingKill] = useState(false)
+  const [gamePlayers, setGamePlayers] = useState<Player[]>([])
+  const [bodyPickerOpen, setBodyPickerOpen] = useState(false)
+  const [selectedBodyId, setSelectedBodyId] = useState<string | null>(null)
+  const [reportingBody, setReportingBody] = useState(false)
+  const [meetingType, setMeetingType] = useState<'emergency' | 'report'>('emergency')
+  const [reportedBodyName, setReportedBodyName] = useState('')
 
 
   useEffect(() => {
@@ -54,6 +60,9 @@ export default function GamePage() {
 
       if (playerError || !playerData) { setError('Player not found'); setLoading(false); return }
       setPlayer(playerData)
+
+      const { data: allPlayersData } = await supabase.from('players').select().eq('game_id', gameData.id)
+      if (allPlayersData) setGamePlayers(allPlayersData)
       setLoading(false)
 
       // Subscribe to meetings for this game
@@ -80,9 +89,15 @@ export default function GamePage() {
           const myId = localStorage.getItem('playerId')
           if (meeting.called_by === myId) return
 
+          const bodyPlayer = meeting.reported_body
+            ? allPlayers?.find((p: Player) => p.id === meeting.reported_body)
+            : null
+
           setMeetingCallerName(callerName)
           setCurrentMeetingId(meeting.id)
           setIsCaller(false)
+          setMeetingType(meeting.type as 'emergency' | 'report')
+          setReportedBodyName(bodyPlayer?.name ?? '')
           setPlaySoundOnDiscussion(true)
           setScreen('discussion')
         })
@@ -121,6 +136,34 @@ export default function GamePage() {
     setCallingMeeting(false)
   }
 
+  async function reportBody() {
+    if (!game || !player || !selectedBodyId || reportingBody) return
+    setReportingBody(true)
+    setBodyPickerOpen(false)
+
+    playEmergencyMeeting()
+
+    const bodyPlayer = gamePlayers.find(p => p.id === selectedBodyId)
+
+    await supabase.from('meetings').insert({
+      game_id: game.id,
+      type: 'report',
+      called_by: player.id,
+      reported_body: selectedBodyId,
+      status: 'voting',
+    })
+
+    const { data: inserted } = await supabase.from('meetings').select('id').eq('game_id', game.id).order('created_at', { ascending: false }).limit(1).single()
+    setCurrentMeetingId(inserted?.id ?? '')
+    setIsCaller(true)
+    setMeetingCallerName(player.name)
+    setMeetingType('report')
+    setReportedBodyName(bodyPlayer?.name ?? 'Unknown')
+    setSelectedBodyId(null)
+    setScreen('discussion')
+    setReportingBody(false)
+  }
+
   async function markSelfKilled() {
     if (!player) return
     await supabase.from('players').update({ is_alive: false }).eq('id', player.id)
@@ -134,6 +177,8 @@ export default function GamePage() {
     setCurrentMeetingId('')
     setIsCaller(false)
     setPlaySoundOnDiscussion(false)
+    setMeetingType('emergency')
+    setReportedBodyName('')
   }
 
   if (loading) {
@@ -169,6 +214,8 @@ export default function GamePage() {
           playerId={player.id}
           onEnd={handleDiscussionEnd}
           playSound={playSoundOnDiscussion}
+          meetingType={meetingType}
+          reportedBodyName={reportedBodyName}
         />
       )}
 
@@ -244,8 +291,50 @@ export default function GamePage() {
           <TaskChecklist gameId={game.id} playerId={player.id} />
         </div>
 
-        {/* Emergency meeting button — fixed at bottom */}
-        <div className="fixed bottom-0 left-0 right-0 p-4 bg-gradient-to-t from-[#0d0d1a] via-[#0d0d1a]/95 to-transparent pt-8">
+        {/* Body picker modal */}
+        {bodyPickerOpen && (
+          <div className="fixed inset-0 z-[60] flex items-end justify-center bg-black/80">
+            <div className="bg-[#1a1a2e] rounded-t-3xl p-6 w-full border-t border-white/10 flex flex-col gap-3" style={{ maxHeight: '80vh' }}>
+              <p className="text-white font-bold text-lg text-center mb-1">Whose body did you find?</p>
+              <div className="flex flex-col gap-2 overflow-y-auto">
+                {gamePlayers.filter(p => p.id !== player.id).map(p => (
+                  <button key={p.id}
+                    onClick={() => setSelectedBodyId(p.id)}
+                    className={`w-full px-4 py-3 rounded-xl text-left font-bold border-2 transition-all ${
+                      selectedBodyId === p.id
+                        ? 'border-yellow-400 bg-yellow-400/10 text-yellow-300'
+                        : 'border-white/10 bg-white/5 text-white'
+                    }`}>
+                    {p.name}
+                  </button>
+                ))}
+              </div>
+              <button
+                onClick={reportBody}
+                disabled={!selectedBodyId}
+                className="w-full py-4 rounded-xl font-black text-lg uppercase tracking-wider active:scale-95 disabled:opacity-30 mt-1"
+                style={{ background: 'linear-gradient(to bottom, #dc2626, #991b1b)', color: '#fff' }}>
+                Report Body
+              </button>
+              <button
+                onClick={() => { setBodyPickerOpen(false); setSelectedBodyId(null) }}
+                className="w-full py-3 text-gray-400 text-sm uppercase tracking-wider">
+                Cancel
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Buttons — fixed at bottom */}
+        <div className="fixed bottom-0 left-0 right-0 p-4 bg-gradient-to-t from-[#0d0d1a] via-[#0d0d1a]/95 to-transparent pt-8 flex flex-col gap-3">
+          <button
+            onClick={() => setBodyPickerOpen(true)}
+            disabled={reportingBody || screen !== 'game'}
+            className="w-full py-3 rounded-xl font-bold text-base uppercase tracking-widest transition-all active:scale-95 disabled:opacity-50 border border-white/10"
+            style={{ background: '#1a1a2e', color: '#d1d5db' }}
+          >
+            {reportingBody ? 'Reporting...' : '🔍 Report Body'}
+          </button>
           <button
             onClick={callMeeting}
             disabled={callingMeeting || screen !== 'game'}

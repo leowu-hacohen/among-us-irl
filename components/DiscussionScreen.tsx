@@ -13,6 +13,8 @@ interface Props {
   playerId: string
   onEnd: () => void
   playSound?: boolean
+  meetingType?: 'emergency' | 'report'
+  reportedBodyName?: string
 }
 
 const TOTAL = 120
@@ -38,7 +40,8 @@ interface VoteRecord { voter_id: string; target_id: string | null }
 interface VoteResult { ejected: Player | null; tie: boolean; votes: VoteRecord[] }
 
 export default function DiscussionScreen({
-  gameCode, gameId, callerName, meetingId, isCaller, playerId, onEnd, playSound = false
+  gameCode, gameId, callerName, meetingId, isCaller, playerId, onEnd,
+  playSound = false, meetingType = 'emergency', reportedBodyName = ''
 }: Props) {
   const [timerRunning, setTimerRunning] = useState(false)
   const [seconds, setSeconds] = useState(TOTAL)
@@ -166,11 +169,25 @@ export default function DiscussionScreen({
       {/* Header */}
       <div className="text-center mb-4">
         <p className="text-red-400 text-xs uppercase tracking-[0.3em] mb-1 font-bold">Game: {gameCode}</p>
-        <h1 className="text-3xl font-black uppercase tracking-widest text-white"
-          style={{ textShadow: '0 0 30px rgba(255,60,60,0.9)' }}>
-          Emergency Meeting
-        </h1>
-        <p className="text-red-300 text-sm mt-1">Called by <span className="text-white font-bold">{callerName}</span></p>
+        {meetingType === 'report' ? (
+          <>
+            <h1 className="text-3xl font-black uppercase tracking-widest text-white"
+              style={{ textShadow: '0 0 30px rgba(255,60,60,0.9)' }}>
+              Body Reported
+            </h1>
+            <p className="text-red-300 text-sm mt-1">
+              Body of <span className="text-white font-bold">{reportedBodyName}</span> reported by <span className="text-white font-bold">{callerName}</span>
+            </p>
+          </>
+        ) : (
+          <>
+            <h1 className="text-3xl font-black uppercase tracking-widest text-white"
+              style={{ textShadow: '0 0 30px rgba(255,60,60,0.9)' }}>
+              Emergency Meeting
+            </h1>
+            <p className="text-red-300 text-sm mt-1">Called by <span className="text-white font-bold">{callerName}</span></p>
+          </>
+        )}
       </div>
 
       {/* Timer */}
