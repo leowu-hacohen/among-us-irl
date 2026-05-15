@@ -93,7 +93,7 @@ export default function TaskChecklist({ gameId, playerId }: Props) {
               </p>
             </div>
             <p className={`text-xs ${task.is_complete ? 'text-green-600 line-through' : 'text-gray-400'}`}>
-              📍 {task.location}
+              {task.emoji}
             </p>
             <p className={`text-xs leading-tight ${task.is_complete ? 'text-green-700 line-through' : 'text-gray-500'}`}>
               {task.description}

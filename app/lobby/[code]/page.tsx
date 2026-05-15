@@ -29,8 +29,13 @@ export default function LobbyPage() {
   const [loading, setLoading] = useState(true)
   const [starting, setStarting] = useState(false)
   const [error, setError] = useState('')
+  const [reactorPickerOpen, setReactorPickerOpen] = useState(false)
+  const [settingReactor, setSettingReactor] = useState(false)
 
   const isHost = game?.host_id === myPlayerId
+  const me = players.find(p => p.id === myPlayerId)
+  const isReactor = me?.role === 'reactor_1' || me?.role === 'reactor_2'
+  const takenReactors = new Set(players.map(p => p.role).filter(r => r === 'reactor_1' || r === 'reactor_2'))
 
   const fetchGame = useCallback(async () => {
     const { data } = await supabase.from('games').select().eq('code', code).single()
@@ -85,9 +90,25 @@ export default function LobbyPage() {
     }
   }, [code, router, fetchGame, fetchPlayers])
 
+  async function selectReactor(slot: 'reactor_1' | 'reactor_2') {
+    if (!myPlayerId || settingReactor) return
+    setSettingReactor(true)
+    await supabase.from('players').update({ role: slot }).eq('id', myPlayerId)
+    setReactorPickerOpen(false)
+    setSettingReactor(false)
+  }
+
   async function startGame() {
     if (!game || players.length < 3) return
     setStarting(true)
+
+    // Assign roles: 2 random impostors, rest crewmates — skip reactors
+    const nonReactors = players.filter(p => p.role !== 'reactor_1' && p.role !== 'reactor_2')
+    const shuffled = [...nonReactors].sort(() => Math.random() - 0.5)
+    const impostorIds = new Set(shuffled.slice(0, 2).map(p => p.id))
+    await Promise.all(nonReactors.map(p =>
+      supabase.from('players').update({ role: impostorIds.has(p.id) ? 'impostor' : 'crewmate' }).eq('id', p.id)
+    ))
 
     // Insert a copy of all tasks for each player individually
     const taskRows = players.flatMap(player =>
@@ -95,7 +116,7 @@ export default function LobbyPage() {
         game_id: game.id,
         player_id: player.id,
         name: t.name,
-        location: t.location,
+        emoji: t.emoji,
         description: t.description,
         is_complete: false,
       }))
@@ -157,6 +178,11 @@ export default function LobbyPage() {
             >
               <div className={`w-4 h-4 rounded-full ${COLOR_MAP[player.color] || 'bg-gray-400'} flex-shrink-0`} />
               <span className="text-white font-medium">{player.name}</span>
+              {(player.role === 'reactor_1' || player.role === 'reactor_2') && (
+                <span className="text-cyan-400 text-xs font-bold uppercase">
+                  ⚛️ {player.role === 'reactor_1' ? 'Reactor 1' : 'Reactor 2'}
+                </span>
+              )}
               {player.id === game?.host_id && (
                 <span className="ml-auto text-yellow-400 text-xs font-bold uppercase">HOST</span>
               )}
@@ -167,6 +193,51 @@ export default function LobbyPage() {
           ))}
         </div>
       </div>
+
+      {/* Reactor selector */}
+      {myPlayerId && (
+        <div className="mt-6 w-full max-w-sm">
+          {!reactorPickerOpen ? (
+            <button
+              onClick={() => setReactorPickerOpen(true)}
+              className="w-full py-3 rounded-xl border text-sm font-bold uppercase tracking-wider transition-all active:scale-95"
+              style={isReactor
+                ? { background: '#0a1f2e', color: '#22d3ee', border: '1px solid #0e7490' }
+                : { background: '#0d0d1a', color: '#6b7280', border: '1px solid rgba(255,255,255,0.1)' }
+              }
+            >
+              {isReactor
+                ? `⚛️ ${me?.role === 'reactor_1' ? 'Reactor 1' : 'Reactor 2'} — Change`
+                : '⚛️ Make me a Reactor'}
+            </button>
+          ) : (
+            <div className="flex flex-col gap-2">
+              <p className="text-gray-400 text-xs uppercase tracking-widest text-center mb-1">Select reactor slot</p>
+              {(['reactor_1', 'reactor_2'] as const).map(slot => {
+                const label = slot === 'reactor_1' ? 'Reactor 1' : 'Reactor 2'
+                const taken = takenReactors.has(slot) && me?.role !== slot
+                return (
+                  <button
+                    key={slot}
+                    onClick={() => !taken && selectReactor(slot)}
+                    disabled={taken || settingReactor}
+                    className="w-full py-3 rounded-xl font-bold text-sm uppercase tracking-wider transition-all active:scale-95 disabled:opacity-40"
+                    style={{ background: '#0a1f2e', color: '#22d3ee', border: '1px solid #0e7490' }}
+                  >
+                    {taken ? `${label} — Taken` : label}
+                  </button>
+                )
+              })}
+              <button
+                onClick={() => setReactorPickerOpen(false)}
+                className="w-full py-2 text-gray-500 text-xs uppercase tracking-wider"
+              >
+                Cancel
+              </button>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Waiting indicator */}
       {!isHost && (

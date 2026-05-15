@@ -1,5 +1,5 @@
 export type GameStatus = 'lobby' | 'playing' | 'voting' | 'ended'
-export type Role = 'crewmate' | 'impostor'
+export type Role = 'crewmate' | 'impostor' | 'reactor_1' | 'reactor_2'
 export type SabotageType = 'lights_out' | 'reactor' | 'comms'
 export type SabotageStatus = 'active' | 'fixed'
 
@@ -10,6 +10,14 @@ export interface Game {
   host_id: string
   task_count: number
   created_at: string
+  current_sabotage: 'none' | 'reactor'
+  reactor_code_a: string | null
+  reactor_code_b: string | null
+  reactor_station_a_complete: boolean
+  reactor_station_b_complete: boolean
+  reactor_started_at: string | null
+  game_over: boolean
+  winning_team: 'crewmates' | 'impostors' | null
 }
 
 export interface Player {
@@ -27,7 +35,7 @@ export interface Task {
   game_id: string
   player_id: string
   name: string
-  location: string
+  emoji: string
   description: string
   is_complete: boolean
 }

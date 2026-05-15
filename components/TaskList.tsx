@@ -61,7 +61,7 @@ export default function TaskList({ tasks, allTasks, onTaskComplete, isDead = fal
                   {task.is_complete && <span className="text-green-400 text-sm">✓</span>}
                 </div>
                 <p className="text-xs text-gray-400 uppercase tracking-wider mb-1">
-                  📍 {task.location}
+                  {task.emoji}
                 </p>
                 <p className="text-sm text-gray-300">{task.description}</p>
               </div>

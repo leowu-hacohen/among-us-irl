@@ -4,7 +4,9 @@ import { useRouter, useParams } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import DiscussionScreen from '@/components/DiscussionScreen'
 import TaskChecklist from '@/components/TaskChecklist'
-import { playEmergencyMeeting, playRoleReveal, unlockAudio } from '@/lib/sounds'
+import ReactorStation from '@/components/ReactorStation'
+import ReactorOverlay from '@/components/ReactorOverlay'
+import { playEmergencyMeeting, playRoleReveal, playSabotage, unlockAudio } from '@/lib/sounds'
 import type { Player, Game } from '@/types/game'
 
 type Screen = 'game' | 'discussion'
@@ -33,6 +35,8 @@ export default function GamePage() {
   const [reportError, setReportError] = useState('')
   const [meetingType, setMeetingType] = useState<'emergency' | 'report'>('emergency')
   const [reportedBodyName, setReportedBodyName] = useState('')
+  const [timeLeft, setTimeLeft] = useState(90)
+  const [roleDrawerOpen, setRoleDrawerOpen] = useState(false)
 
 
   useEffect(() => {
@@ -67,9 +71,27 @@ export default function GamePage() {
       setLoading(false)
       playRoleReveal()
 
-      // Subscribe to meetings for this game
+      // Subscribe to game state changes (sabotage, game-over, etc.)
       channel = supabase
-        .channel(`game-meetings-${gameData.id}`)
+        .channel(`game-state-${gameData.id}`)
+        .on('postgres_changes', {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'games',
+          filter: `id=eq.${gameData.id}`,
+        }, (payload) => {
+          setGame(payload.new as Game)
+        })
+        .on('postgres_changes', {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'sabotages',
+          filter: `game_id=eq.${gameData.id}`,
+        }, (payload) => {
+          const myId = localStorage.getItem('playerId')
+          if (payload.new.triggered_by === myId) return
+          playSabotage()
+        })
         .on('postgres_changes', {
           event: 'INSERT',
           schema: 'public',
@@ -112,6 +134,26 @@ export default function GamePage() {
       if (channel) supabase.removeChannel(channel)
     }
   }, [code, router])
+
+  useEffect(() => {
+    if (game?.current_sabotage !== 'reactor' || !game?.reactor_started_at) {
+      setTimeLeft(90)
+      return
+    }
+    const interval = setInterval(() => {
+      const elapsed = (Date.now() - new Date(game.reactor_started_at!).getTime()) / 1000
+      const tl = Math.max(0, 90 - Math.floor(elapsed))
+      setTimeLeft(tl)
+      if (tl <= 0) {
+        clearInterval(interval)
+        supabase.from('games')
+          .update({ game_over: true, winning_team: 'impostors', current_sabotage: 'none' })
+          .eq('id', game.id)
+          .eq('game_over', false)
+      }
+    }, 1000)
+    return () => clearInterval(interval)
+  }, [game?.current_sabotage, game?.reactor_started_at, game?.id])
 
   async function callMeeting() {
     if (!game || !player || callingMeeting) return
@@ -175,10 +217,52 @@ export default function GamePage() {
   }
 
   async function markSelfKilled() {
-    if (!player) return
+    if (!player || !game) return
     await supabase.from('players').update({ is_alive: false }).eq('id', player.id)
     setPlayer({ ...player, is_alive: false })
     setConfirmingKill(false)
+
+    // Win condition: check if impostors now >= alive crewmates
+    const { data: alivePlayers } = await supabase
+      .from('players').select('role').eq('game_id', game.id).eq('is_alive', true)
+    if (alivePlayers) {
+      const aliveImpostors = alivePlayers.filter(p => p.role === 'impostor').length
+      const aliveCrewmates = alivePlayers.filter(p => p.role === 'crewmate').length
+      if (aliveImpostors >= aliveCrewmates) {
+        await supabase.from('games')
+          .update({ game_over: true, winning_team: 'impostors' })
+          .eq('id', game.id)
+          .eq('game_over', false)
+      }
+    }
+  }
+
+  async function triggerReactor() {
+    if (!game || !player || game.current_sabotage !== 'none') return
+    setRoleDrawerOpen(false)
+
+    function randCode() { return String(Math.floor(1000 + Math.random() * 9000)) }
+    let codeA = randCode()
+    let codeB = randCode()
+    while (codeB === codeA) codeB = randCode()
+
+    playSabotage()
+
+    await supabase.from('sabotages').insert({
+      game_id: game.id,
+      type: 'reactor',
+      status: 'active',
+      triggered_by: player.id,
+    })
+
+    await supabase.from('games').update({
+      current_sabotage: 'reactor',
+      reactor_code_a: codeA,
+      reactor_code_b: codeB,
+      reactor_started_at: new Date().toISOString(),
+      reactor_station_a_complete: false,
+      reactor_station_b_complete: false,
+    }).eq('id', game.id)
   }
 
   function handleDiscussionEnd() {
@@ -212,8 +296,33 @@ export default function GamePage() {
 
   if (!player || !game) return null
 
+  if (game.game_over) {
+    return (
+      <div className="min-h-screen bg-[#0d0d1a] flex flex-col items-center justify-center px-6 gap-4">
+        <p className="text-6xl">{game.winning_team === 'crewmates' ? '🎉' : '💀'}</p>
+        <p
+          className="text-3xl font-black uppercase tracking-widest text-center"
+          style={{ color: game.winning_team === 'crewmates' ? '#4ade80' : '#ef4444' }}
+        >
+          {game.winning_team === 'crewmates' ? 'Crewmates Win' : 'Impostors Win'}
+        </p>
+        {game.winning_team === 'impostors' && (
+          <p className="text-gray-400 text-sm text-center">The reactor melted down.</p>
+        )}
+      </div>
+    )
+  }
+
+  if (player.role === 'reactor_1' || player.role === 'reactor_2') {
+    return <ReactorStation game={game} stationSlot={player.role} />
+  }
+
   return (
     <>
+      {game.current_sabotage === 'reactor' && screen === 'game' && (
+        <ReactorOverlay game={game} timeLeft={timeLeft} />
+      )}
+
       {screen === 'discussion' && (
         <DiscussionScreen
           gameCode={code}
@@ -338,8 +447,63 @@ export default function GamePage() {
           </div>
         )}
 
+        {/* Role drawer */}
+        {roleDrawerOpen && (
+          <div
+            className="fixed inset-0 z-[60] flex items-end justify-center bg-black/60"
+            onClick={() => setRoleDrawerOpen(false)}
+          >
+            <div
+              className="bg-[#1a1a2e] rounded-t-3xl w-full border-t border-white/10 flex flex-col gap-4 p-6"
+              style={{ maxHeight: '55vh' }}
+              onClick={e => e.stopPropagation()}
+            >
+              {/* Role display */}
+              <div className="flex flex-col items-center gap-2 pt-2">
+                <p className="text-gray-500 text-xs uppercase tracking-widest">Your Role</p>
+                <p
+                  className="text-3xl font-black uppercase tracking-widest"
+                  style={{ color: player.role === 'impostor' ? '#f87171' : '#4ade80' }}
+                >
+                  {player.role === 'impostor' ? '🔪 Impostor' : '✅ Crewmate'}
+                </p>
+              </div>
+
+              {/* Sabotage section — impostors only */}
+              {player.role === 'impostor' && (
+                <div className="flex flex-col gap-2 mt-1">
+                  <div className="w-full h-px bg-white/10" />
+                  <p className="text-gray-500 text-xs uppercase tracking-widest text-center">Sabotage</p>
+                  <button
+                    onClick={triggerReactor}
+                    disabled={game.current_sabotage !== 'none' || screen !== 'game'}
+                    className="w-full py-4 rounded-xl font-black text-lg uppercase tracking-widest active:scale-95 transition-all disabled:opacity-40"
+                    style={{ background: 'linear-gradient(to bottom, #7c3aed, #5b21b6)', color: '#fff' }}
+                  >
+                    {game.current_sabotage !== 'none' ? '⚡ Sabotage Active' : '⚛️ Sabotage Reactor'}
+                  </button>
+                </div>
+              )}
+
+              <button
+                onClick={() => setRoleDrawerOpen(false)}
+                className="w-full py-3 text-gray-400 text-sm uppercase tracking-wider"
+              >
+                Hide Role
+              </button>
+            </div>
+          </div>
+        )}
+
         {/* Buttons — fixed at bottom */}
         <div className="fixed bottom-0 left-0 right-0 p-4 bg-gradient-to-t from-[#0d0d1a] via-[#0d0d1a]/95 to-transparent pt-8 flex flex-col gap-3">
+          <button
+            onClick={() => setRoleDrawerOpen(true)}
+            className="w-full py-3 rounded-xl font-bold text-base uppercase tracking-widest transition-all active:scale-95 border border-white/10"
+            style={{ background: '#1a1a2e', color: '#9ca3af' }}
+          >
+            👁 Show Role
+          </button>
           <button
             onClick={() => setBodyPickerOpen(true)}
             disabled={reportingBody || screen !== 'game'}

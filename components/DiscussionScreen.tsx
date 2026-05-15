@@ -100,6 +100,19 @@ export default function DiscussionScreen({
     const ejected = ejectedId && !tie ? currentPlayers.find(p => p.id === ejectedId) ?? null : null
     if (ejected) {
       await supabase.from('players').update({ is_alive: false }).eq('id', ejected.id)
+
+      // Win condition: if ejected player was an impostor, check if any impostors remain
+      if (ejected.role === 'impostor') {
+        const { data: alivePlayers } = await supabase
+          .from('players').select('role').eq('game_id', gameId).eq('is_alive', true)
+        const aliveImpostors = alivePlayers?.filter(p => p.role === 'impostor') ?? []
+        if (aliveImpostors.length === 0) {
+          await supabase.from('games')
+            .update({ game_over: true, winning_team: 'crewmates' })
+            .eq('id', gameId)
+            .eq('game_over', false)
+        }
+      }
     }
     setResult({ ejected, tie: tie || maxVotes === 0, votes })
     setPhase('results')

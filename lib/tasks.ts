@@ -1,18 +1,19 @@
 export interface TaskTemplate {
   name: string
-  location: string
+  emoji: string
   description: string
 }
 
 export const TASK_POOL: TaskTemplate[] = [
-  { name: 'Fix Wiring', location: 'Electrical Room', description: 'Find the electrical panel and hold the button for 3 seconds.' },
-  { name: 'Scan ID Card', location: 'Admin Office', description: 'Scan the QR code posted on the admin desk.' },
-  { name: 'Empty Trash', location: 'Cafeteria', description: 'Find the trash bin and scan the QR code on it.' },
-  { name: 'Calibrate Navigation', location: 'Navigation Room', description: 'Swipe left-right-left on the panel when prompted.' },
-  { name: 'Submit Scan', location: 'MedBay', description: 'Scan the QR code inside MedBay to complete your health scan.' },
-  { name: 'Download Data', location: 'Communications', description: 'Hold the download button for 5 seconds at the comms terminal.' },
-  { name: 'Fuel Engines', location: 'Engine Room', description: 'Scan both QR codes — one on each engine panel.' },
-  { name: 'Inspect Shields', location: 'Shields Room', description: 'Tap each shield icon in order as shown.' },
+  { name: 'Basketball', emoji: '🏀', description: 'Make 2 shots in a row from the marked distance.' },
+  { name: 'Whiteboard', emoji: '📝', description: 'Draw the assigned prompt on the whiteboard, like a portrait or perfect circle.' },
+  { name: 'Picture', emoji: '📷', description: 'Take a picture of someone, email it to the laptop, save it to a USB, then print it.' },
+  { name: 'Bottle Flip', emoji: '💧', description: 'Flip the water bottle until it lands upright.' },
+  { name: 'Scale', emoji: '⚖️', description: 'Use books/items to make the scale read exactly 200 lbs. (±0.5)' },
+  { name: 'Restock Supplies', emoji: '🧻', description: 'Bring 2 paper towels from the bathroom to the kitchen.' },
+  { name: 'Stopwatch', emoji: '⏱️', description: 'Stop the stopwatch at exactly 10 seconds. (±0.5)' },
+  { name: 'Cup Ball', emoji: '🎯', description: 'Roll the ball across the table into the red cup taped at the end.' },
+  { name: "Rubik's Cube", emoji: '🧩', description: "Solve one full side of the Rubik's Cube." },
 ]
 
 export function assignTasks(taskCount: number): TaskTemplate[] {
