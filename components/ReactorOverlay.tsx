@@ -1,4 +1,6 @@
 'use client'
+import { useState } from 'react'
+import { supabase } from '@/lib/supabase'
 import type { Game } from '@/types/game'
 
 interface Props {
@@ -7,10 +9,26 @@ interface Props {
 }
 
 export default function ReactorOverlay({ game, timeLeft }: Props) {
+  const [fixing, setFixing] = useState(false)
+
   const mins = Math.floor(timeLeft / 60)
   const secs = timeLeft % 60
   const timerStr = `${mins}:${secs.toString().padStart(2, '0')}`
   const urgent = timeLeft <= 30
+
+  async function manualFix() {
+    if (fixing) return
+    setFixing(true)
+    await supabase.from('games').update({
+      current_sabotage: 'none',
+      reactor_station_a_complete: false,
+      reactor_station_b_complete: false,
+      reactor_started_at: null,
+      reactor_code_a: null,
+      reactor_code_b: null,
+    }).eq('id', game.id).eq('current_sabotage', 'reactor')
+    setFixing(false)
+  }
 
   return (
     <div className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-black/90 px-6 gap-5">
@@ -33,7 +51,16 @@ export default function ReactorOverlay({ game, timeLeft }: Props) {
         {timerStr}
       </div>
 
-      <div className="flex gap-4 mt-2">
+      <button
+        onClick={manualFix}
+        disabled={fixing}
+        className="w-full max-w-xs py-4 rounded-xl font-black text-lg uppercase tracking-widest transition-all active:scale-95 disabled:opacity-50"
+        style={{ background: 'linear-gradient(to bottom, #16a34a, #15803d)', color: '#fff' }}
+      >
+        {fixing ? 'Fixing...' : '✅ Reactor Fixed'}
+      </button>
+
+      <div className="flex gap-4">
         {(['A', 'B'] as const).map(s => {
           const done = s === 'A' ? game.reactor_station_a_complete : game.reactor_station_b_complete
           return (

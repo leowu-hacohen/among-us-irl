@@ -13,6 +13,7 @@ export default function ReactorStation({ game, stationSlot }: Props) {
   const [error, setError] = useState('')
   const [submitting, setSubmitting] = useState(false)
   const [timeLeft, setTimeLeft] = useState(45)
+  const [fixing, setFixing] = useState(false)
 
   const isA = stationSlot === 'reactor_1'
   const stationLabel = isA ? 'A' : 'B'
@@ -64,6 +65,20 @@ export default function ReactorStation({ game, stationSlot }: Props) {
     clear()
   }, [game.reactor_station_a_complete, game.reactor_station_b_complete, game.current_sabotage, game.id])
 
+
+  async function manualFix() {
+    if (fixing) return
+    setFixing(true)
+    await supabase.from('games').update({
+      current_sabotage: 'none',
+      reactor_station_a_complete: false,
+      reactor_station_b_complete: false,
+      reactor_started_at: null,
+      reactor_code_a: null,
+      reactor_code_b: null,
+    }).eq('id', game.id).eq('current_sabotage', 'reactor')
+    setFixing(false)
+  }
 
   async function submitCode() {
     if (submitting || !myCode) return
@@ -175,7 +190,16 @@ export default function ReactorStation({ game, stationSlot }: Props) {
         </div>
       )}
 
-      <div className="flex gap-3 mt-2">
+      <button
+        onClick={manualFix}
+        disabled={fixing}
+        className="w-full max-w-xs py-4 rounded-xl font-black text-lg uppercase tracking-widest transition-all active:scale-95 disabled:opacity-50 mt-2"
+        style={{ background: 'linear-gradient(to bottom, #16a34a, #15803d)', color: '#fff' }}
+      >
+        {fixing ? 'Fixing...' : '✅ Reactor Fixed'}
+      </button>
+
+      <div className="flex gap-3">
         {(['A', 'B'] as const).map(s => {
           const done = s === 'A' ? game.reactor_station_a_complete : game.reactor_station_b_complete
           return (
