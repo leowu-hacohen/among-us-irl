@@ -431,7 +431,7 @@ export default function GamePage() {
               <img src="/map.png" alt="Map" className="w-full object-cover" style={{ maxHeight: '140px' }} />
             </button>
           </div>
-          <TaskChecklist gameId={game.id} playerId={player.id} />
+          <TaskChecklist gameId={game.id} playerId={player.id} isAlive={player.is_alive} />
         </div>
 
         {/* Map fullscreen overlay */}

@@ -6,9 +6,10 @@ import type { Task } from '@/types/game'
 interface Props {
   gameId: string
   playerId: string
+  isAlive: boolean
 }
 
-export default function TaskChecklist({ gameId, playerId }: Props) {
+export default function TaskChecklist({ gameId, playerId, isAlive }: Props) {
   const [myTasks, setMyTasks] = useState<Task[]>([])
   const [allTasks, setAllTasks] = useState<Task[]>([])
   const [loading, setLoading] = useState(true)
@@ -89,12 +90,14 @@ export default function TaskChecklist({ gameId, playerId }: Props) {
         {myTasks.map(task => (
           <button
             key={task.id}
-            onClick={() => !task.is_complete && completeTask(task.id)}
-            disabled={task.is_complete}
+            onClick={() => !task.is_complete && isAlive && completeTask(task.id)}
+            disabled={task.is_complete || !isAlive}
             className={`rounded-xl p-2.5 border text-left flex items-start gap-2 transition-all active:scale-95 w-full ${
               task.is_complete
                 ? 'bg-green-900/30 border-green-700/40'
-                : 'bg-[#1a1a2e] border-white/10 active:bg-[#22223b]'
+                : !isAlive
+                  ? 'bg-white/5 border-white/5 opacity-40'
+                  : 'bg-[#1a1a2e] border-white/10 active:bg-[#22223b]'
             }`}
           >
             {/* Checkbox */}
