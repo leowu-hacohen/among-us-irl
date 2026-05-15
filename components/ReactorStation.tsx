@@ -107,47 +107,46 @@ export default function ReactorStation({ game, stationSlot }: Props) {
         {timerStr}
       </div>
 
+      {/* Code always visible so players can relay it even after completing */}
+      <div className="flex flex-col items-center gap-1">
+        <p className="text-xs text-gray-500 uppercase tracking-widest">Reset Code</p>
+        <p
+          className="text-6xl font-black tracking-[0.25em] text-white"
+          style={{ fontVariantNumeric: 'tabular-nums' }}
+        >
+          {myCode}
+        </p>
+        <p className="text-xs text-gray-600 mt-1">Crewmates must enter this code at the other station</p>
+      </div>
+
       {myComplete ? (
-        <div className="flex flex-col items-center gap-2 py-6">
+        <div className="flex flex-col items-center gap-2">
           <p className="text-4xl">✅</p>
           <p className="text-green-400 font-black text-xl uppercase tracking-widest">Station {stationLabel} Complete</p>
           <p className="text-gray-500 text-sm">Waiting for the other station...</p>
         </div>
       ) : (
-        <>
-          <div className="flex flex-col items-center gap-1">
-            <p className="text-xs text-gray-500 uppercase tracking-widest">Reset Code</p>
-            <p
-              className="text-6xl font-black tracking-[0.25em] text-white"
-              style={{ fontVariantNumeric: 'tabular-nums' }}
-            >
-              {myCode}
-            </p>
-            <p className="text-xs text-gray-600 mt-1">Crewmates must enter this code</p>
-          </div>
-
-          <div className="w-full max-w-xs flex flex-col gap-2">
-            <p className="text-xs text-gray-400 uppercase tracking-widest text-center">Enter Code</p>
-            <input
-              type="text"
-              inputMode="numeric"
-              maxLength={4}
-              value={input}
-              onChange={e => { setInput(e.target.value.replace(/\D/g, '').slice(0, 4)); setError('') }}
-              placeholder="_ _ _ _"
-              className="w-full text-center text-3xl font-black py-4 rounded-xl bg-[#1a1a2e] border border-white/20 text-white tracking-[0.3em] focus:outline-none focus:border-cyan-500"
-            />
-            {error && <p className="text-red-400 text-sm text-center font-medium">{error}</p>}
-            <button
-              onClick={submitCode}
-              disabled={input.length !== 4 || submitting}
-              className="w-full py-4 rounded-xl font-black text-lg uppercase tracking-widest disabled:opacity-40 transition-all active:scale-95"
-              style={{ background: 'linear-gradient(to bottom, #0891b2, #0e7490)', color: '#fff' }}
-            >
-              {submitting ? 'Checking...' : 'Submit'}
-            </button>
-          </div>
-        </>
+        <div className="w-full max-w-xs flex flex-col gap-2">
+          <p className="text-xs text-gray-400 uppercase tracking-widest text-center">Enter Code</p>
+          <input
+            type="text"
+            inputMode="numeric"
+            maxLength={4}
+            value={input}
+            onChange={e => { setInput(e.target.value.replace(/\D/g, '').slice(0, 4)); setError('') }}
+            placeholder="_ _ _ _"
+            className="w-full text-center text-3xl font-black py-4 rounded-xl bg-[#1a1a2e] border border-white/20 text-white tracking-[0.3em] focus:outline-none focus:border-cyan-500"
+          />
+          {error && <p className="text-red-400 text-sm text-center font-medium">{error}</p>}
+          <button
+            onClick={submitCode}
+            disabled={input.length !== 4 || submitting}
+            className="w-full py-4 rounded-xl font-black text-lg uppercase tracking-widest disabled:opacity-40 transition-all active:scale-95"
+            style={{ background: 'linear-gradient(to bottom, #0891b2, #0e7490)', color: '#fff' }}
+          >
+            {submitting ? 'Checking...' : 'Submit'}
+          </button>
+        </div>
       )}
 
       <div className="flex gap-3 mt-2">
