@@ -73,8 +73,10 @@ export default function DiscussionScreen({
 
     // Tally
     const tally: Record<string, number> = {}
+    let skipCount = 0
     for (const v of votes) {
       if (v.target_id) tally[v.target_id] = (tally[v.target_id] || 0) + 1
+      else skipCount++
     }
 
     let maxVotes = 0
@@ -83,6 +85,12 @@ export default function DiscussionScreen({
     for (const [pid, count] of Object.entries(tally)) {
       if (count > maxVotes) { maxVotes = count; ejectedId = pid; tie = false }
       else if (count === maxVotes) { tie = true }
+    }
+
+    // Skips >= top vote count → no ejection
+    if (skipCount >= maxVotes) {
+      ejectedId = null
+      tie = maxVotes > 0 && skipCount === maxVotes
     }
 
     const ejected = ejectedId && !tie ? currentPlayers.find(p => p.id === ejectedId) ?? null : null
