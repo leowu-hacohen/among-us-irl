@@ -27,10 +27,18 @@ export default function ReactorStation({ game, stationSlot }: Props) {
     }
     const interval = setInterval(() => {
       const elapsed = (Date.now() - new Date(game.reactor_started_at!).getTime()) / 1000
-      setTimeLeft(Math.max(0, 90 - Math.floor(elapsed)))
+      const tl = Math.max(0, 90 - Math.floor(elapsed))
+      setTimeLeft(tl)
+      if (tl <= 0) {
+        clearInterval(interval)
+        supabase.from('games')
+          .update({ game_over: true, winning_team: 'impostors', current_sabotage: 'none' })
+          .eq('id', game.id)
+          .eq('game_over', false)
+      }
     }, 1000)
     return () => clearInterval(interval)
-  }, [game.current_sabotage, game.reactor_started_at])
+  }, [game.current_sabotage, game.reactor_started_at, game.id])
 
   async function submitCode() {
     if (submitting || !myCode) return
