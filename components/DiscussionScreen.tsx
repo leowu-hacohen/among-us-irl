@@ -99,6 +99,20 @@ export default function DiscussionScreen({
             .eq('game_over', false)
         }
       }
+
+      // Win condition: impostors >= crewmates after ejection
+      const { data: remaining } = await supabase
+        .from('players').select('role')
+        .eq('game_id', gameId).eq('is_alive', true)
+      if (remaining) {
+        const aliveImpostors = remaining.filter(p => p.role === 'impostor').length
+        const aliveCrewmates = remaining.filter(p => p.role === 'crewmate').length
+        if (aliveImpostors >= aliveCrewmates && aliveImpostors > 0) {
+          await supabase.from('games')
+            .update({ game_over: true, winning_team: 'impostors' })
+            .eq('id', gameId).eq('game_over', false)
+        }
+      }
     }
     setResult({ ejected, tie: tie || maxVotes === 0, votes })
     setPhase('results')
