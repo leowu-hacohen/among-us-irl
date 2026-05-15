@@ -11,36 +11,34 @@ interface Props {
 
 export default function TaskChecklist({ gameId, playerId, isAlive }: Props) {
   const [myTasks, setMyTasks] = useState<Task[]>([])
-  const [allTasks, setAllTasks] = useState<Task[]>([])
+  const [totalCrewTasks, setTotalCrewTasks] = useState(0)
+  const [doneCrewTasks, setDoneCrewTasks] = useState(0)
   const [loading, setLoading] = useState(true)
-  const [crewmateIds, setCrewmateIds] = useState<Set<string>>(new Set())
-
-  useEffect(() => {
-    supabase.from('players').select('id, role').eq('game_id', gameId).then(({ data }) => {
-      if (data) setCrewmateIds(new Set(data.filter(p => p.role === 'crewmate').map(p => p.id)))
-    })
-  }, [gameId])
 
   async function fetchTasks() {
-    const { data: mine } = await supabase.from('tasks').select().eq('game_id', gameId).eq('player_id', playerId).order('name')
-    const { data: all } = await supabase.from('tasks').select().eq('game_id', gameId)
-    if (mine) setMyTasks(mine as Task[])
-    if (all) {
-      setAllTasks(all as Task[])
+    const [{ data: mine }, { data: all }, { data: players }] = await Promise.all([
+      supabase.from('tasks').select().eq('game_id', gameId).eq('player_id', playerId).order('name'),
+      supabase.from('tasks').select().eq('game_id', gameId),
+      supabase.from('players').select('id, role').eq('game_id', gameId),
+    ])
 
-      // Win check: all crewmate tasks done
-      const { data: players } = await supabase.from('players').select('id, role').eq('game_id', gameId)
-      if (players) {
-        const crewIds = new Set(players.filter(p => p.role === 'crewmate').map(p => p.id))
-        const crewTasks = all.filter(t => crewIds.has(t.player_id))
-        const total = crewTasks.length
-        const done = crewTasks.filter(t => t.is_complete).length
-        if (total > 0 && done === total) {
-          await supabase.from('games')
-            .update({ game_over: true, winning_team: 'crewmates' })
-            .eq('id', gameId)
-            .eq('game_over', false)
-        }
+    if (mine) setMyTasks(mine as Task[])
+
+    if (all && players) {
+      const crewIds = new Set(
+        players.filter(p => p.role === 'crewmate').map(p => p.id)
+      )
+      const crewTasks = (all as Task[]).filter(t => crewIds.has(t.player_id))
+      const total = crewTasks.length
+      const done = crewTasks.filter(t => t.is_complete).length
+      setTotalCrewTasks(total)
+      setDoneCrewTasks(done)
+
+      if (total > 0 && done === total) {
+        await supabase.from('games')
+          .update({ game_over: true, winning_team: 'crewmates' })
+          .eq('id', gameId)
+          .eq('game_over', false)
       }
     }
   }
@@ -63,10 +61,7 @@ export default function TaskChecklist({ gameId, playerId, isAlive }: Props) {
     await supabase.from('tasks').update({ is_complete: true }).eq('id', taskId)
   }
 
-  const crewTasks = allTasks.filter(t => crewmateIds.has(t.player_id))
-  const total = crewTasks.length
-  const done = crewTasks.filter(t => t.is_complete).length
-  const pct = total === 0 ? 0 : Math.round((done / total) * 100)
+  const pct = totalCrewTasks === 0 ? 0 : Math.round((doneCrewTasks / totalCrewTasks) * 100)
 
   if (loading) {
     return <div className="px-4 py-4 text-center text-gray-400 animate-pulse text-sm">Loading tasks...</div>
@@ -78,7 +73,7 @@ export default function TaskChecklist({ gameId, playerId, isAlive }: Props) {
       <div>
         <div className="flex justify-between text-[10px] text-gray-400 mb-1 uppercase tracking-wider">
           <span>Tasks</span>
-          <span>{done}/{total} complete</span>
+          <span>{pct}% complete</span>
         </div>
         <div className="w-full h-2 rounded-full bg-white/10 overflow-hidden">
           <div className="h-full rounded-full bg-green-500 transition-all duration-500" style={{ width: `${pct}%` }} />
@@ -100,7 +95,6 @@ export default function TaskChecklist({ gameId, playerId, isAlive }: Props) {
                   : 'bg-[#1a1a2e] border-white/10 active:bg-[#22223b]'
             }`}
           >
-            {/* Checkbox */}
             <div className="flex-shrink-0 mt-0.5">
               {task.is_complete ? (
                 <div className="w-4 h-4 rounded-full bg-green-500 flex items-center justify-center">
@@ -112,7 +106,6 @@ export default function TaskChecklist({ gameId, playerId, isAlive }: Props) {
                 <div className="w-4 h-4 rounded-full border-2 border-white/30" />
               )}
             </div>
-            {/* Text */}
             <div className="flex flex-col gap-0.5 min-w-0">
               <p className={`font-bold text-[11px] leading-tight truncate ${task.is_complete ? 'text-green-400 line-through' : 'text-white'}`}>
                 {task.emoji} {task.name}
