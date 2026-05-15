@@ -40,6 +40,29 @@ export default function ReactorStation({ game, stationSlot }: Props) {
     return () => clearInterval(interval)
   }, [game.current_sabotage, game.reactor_started_at, game.id])
 
+  // Reactive clear: fires whenever real-time prop update shows both stations done
+  useEffect(() => {
+    if (
+      game.current_sabotage !== 'reactor' ||
+      !game.reactor_station_a_complete ||
+      !game.reactor_station_b_complete
+    ) return
+    supabase.from('games')
+      .update({
+        current_sabotage: 'none',
+        reactor_station_a_complete: false,
+        reactor_station_b_complete: false,
+        reactor_started_at: null,
+        reactor_code_a: null,
+        reactor_code_b: null,
+        reactor_cooldown_until: new Date(Date.now() + 2 * 60 * 1000).toISOString(),
+      })
+      .eq('id', game.id)
+      .eq('current_sabotage', 'reactor')
+      .then(() => {})
+  }, [game.reactor_station_a_complete, game.reactor_station_b_complete, game.current_sabotage, game.id])
+
+
   async function submitCode() {
     if (submitting || !myCode) return
     setSubmitting(true)
@@ -53,22 +76,7 @@ export default function ReactorStation({ game, stationSlot }: Props) {
 
     const field = isA ? 'reactor_station_a_complete' : 'reactor_station_b_complete'
     await supabase.from('games').update({ [field]: true }).eq('id', game.id)
-
-    const { data: fresh } = await supabase.from('games').select().eq('id', game.id).single()
-    if (fresh?.reactor_station_a_complete && fresh?.reactor_station_b_complete) {
-      await supabase.from('games')
-        .update({
-          current_sabotage: 'none',
-          reactor_station_a_complete: false,
-          reactor_station_b_complete: false,
-          reactor_started_at: null,
-          reactor_code_a: null,
-          reactor_code_b: null,
-          reactor_cooldown_until: new Date(Date.now() + 2 * 60 * 1000).toISOString(),
-        })
-        .eq('id', game.id)
-        .eq('current_sabotage', 'reactor')
-    }
+    // Clearing is handled reactively by the useEffect watching both station flags
 
     setSubmitting(false)
   }
