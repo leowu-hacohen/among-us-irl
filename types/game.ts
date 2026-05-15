@@ -16,6 +16,7 @@ export interface Game {
   reactor_station_a_complete: boolean
   reactor_station_b_complete: boolean
   reactor_started_at: string | null
+  reactor_cooldown_until: string | null
   game_over: boolean
   winning_team: 'crewmates' | 'impostors' | null
 }

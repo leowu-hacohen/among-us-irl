@@ -38,6 +38,7 @@ export default function GamePage() {
   const [timeLeft, setTimeLeft] = useState(90)
   const [roleDrawerOpen, setRoleDrawerOpen] = useState(false)
   const [mapOpen, setMapOpen] = useState(false)
+  const [cooldownSecondsLeft, setCooldownSecondsLeft] = useState(0)
 
 
   useEffect(() => {
@@ -155,6 +156,18 @@ export default function GamePage() {
     }, 1000)
     return () => clearInterval(interval)
   }, [game?.current_sabotage, game?.reactor_started_at, game?.id])
+
+  useEffect(() => {
+    if (!game?.reactor_cooldown_until) { setCooldownSecondsLeft(0); return }
+    const update = () => {
+      const secs = Math.max(0, Math.ceil((new Date(game.reactor_cooldown_until!).getTime() - Date.now()) / 1000))
+      setCooldownSecondsLeft(secs)
+      if (secs <= 0) clearInterval(interval)
+    }
+    update()
+    const interval = setInterval(update, 1000)
+    return () => clearInterval(interval)
+  }, [game?.reactor_cooldown_until])
 
   async function callMeeting() {
     if (!game || !player || callingMeeting) return
@@ -508,11 +521,15 @@ export default function GamePage() {
                   <p className="text-gray-500 text-xs uppercase tracking-widest text-center">Sabotage</p>
                   <button
                     onClick={triggerReactor}
-                    disabled={game.current_sabotage !== 'none' || screen !== 'game'}
+                    disabled={game.current_sabotage !== 'none' || screen !== 'game' || cooldownSecondsLeft > 0}
                     className="w-full py-4 rounded-xl font-black text-lg uppercase tracking-widest active:scale-95 transition-all disabled:opacity-40"
                     style={{ background: 'linear-gradient(to bottom, #7c3aed, #5b21b6)', color: '#fff' }}
                   >
-                    {game.current_sabotage !== 'none' ? '⚡ Sabotage Active' : '⚛️ Sabotage Reactor'}
+                    {game.current_sabotage !== 'none'
+                      ? '⚡ Sabotage Active'
+                      : cooldownSecondsLeft > 0
+                        ? `⏳ Cooldown: ${Math.floor(cooldownSecondsLeft / 60)}:${(cooldownSecondsLeft % 60).toString().padStart(2, '0')}`
+                        : '⚛️ Sabotage Reactor'}
                   </button>
                 </div>
               )}

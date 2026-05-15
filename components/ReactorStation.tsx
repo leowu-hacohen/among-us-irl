@@ -64,6 +64,7 @@ export default function ReactorStation({ game, stationSlot }: Props) {
           reactor_started_at: null,
           reactor_code_a: null,
           reactor_code_b: null,
+          reactor_cooldown_until: new Date(Date.now() + 2 * 60 * 1000).toISOString(),
         })
         .eq('id', game.id)
         .eq('current_sabotage', 'reactor')
