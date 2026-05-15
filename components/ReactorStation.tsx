@@ -12,7 +12,7 @@ export default function ReactorStation({ game, stationSlot }: Props) {
   const [input, setInput] = useState('')
   const [error, setError] = useState('')
   const [submitting, setSubmitting] = useState(false)
-  const [timeLeft, setTimeLeft] = useState(90)
+  const [timeLeft, setTimeLeft] = useState(45)
 
   const isA = stationSlot === 'reactor_1'
   const stationLabel = isA ? 'A' : 'B'
@@ -22,12 +22,12 @@ export default function ReactorStation({ game, stationSlot }: Props) {
 
   useEffect(() => {
     if (game.current_sabotage !== 'reactor' || !game.reactor_started_at) {
-      setTimeLeft(90)
+      setTimeLeft(45)
       return
     }
     const interval = setInterval(async () => {
       const elapsed = (Date.now() - new Date(game.reactor_started_at!).getTime()) / 1000
-      const tl = Math.max(0, 90 - Math.floor(elapsed))
+      const tl = Math.max(0, 45 - Math.floor(elapsed))
       setTimeLeft(tl)
       if (tl <= 0) {
         clearInterval(interval)
@@ -143,7 +143,7 @@ export default function ReactorStation({ game, stationSlot }: Props) {
             onClick={submitCode}
             disabled={input.length !== 4 || submitting}
             className="w-full py-4 rounded-xl font-black text-lg uppercase tracking-widest disabled:opacity-40 transition-all active:scale-95"
-            style={{ background: 'linear-gradient(to bottom, #0891b2, #0e7490)', color: '#fff' }}
+            style={{ background: 'linear-gradient(to bottom, #0891b2, #0e7445)', color: '#fff' }}
           >
             {submitting ? 'Checking...' : 'Submit'}
           </button>
@@ -158,7 +158,7 @@ export default function ReactorStation({ game, stationSlot }: Props) {
               key={s}
               className={`px-3 py-1.5 rounded-lg text-xs font-bold uppercase tracking-wider border ${
                 done
-                  ? 'bg-green-900/40 border-green-700/50 text-green-400'
+                  ? 'bg-green-450/40 border-green-700/50 text-green-400'
                   : 'bg-white/5 border-white/10 text-gray-500'
               }`}
             >

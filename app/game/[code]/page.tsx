@@ -35,7 +35,7 @@ export default function GamePage() {
   const [reportError, setReportError] = useState('')
   const [meetingType, setMeetingType] = useState<'emergency' | 'report'>('emergency')
   const [reportedBodyName, setReportedBodyName] = useState('')
-  const [timeLeft, setTimeLeft] = useState(90)
+  const [timeLeft, setTimeLeft] = useState(45)
   const [roleDrawerOpen, setRoleDrawerOpen] = useState(false)
   const [mapOpen, setMapOpen] = useState(false)
   const [cooldownSecondsLeft, setCooldownSecondsLeft] = useState(0)
@@ -139,12 +139,12 @@ export default function GamePage() {
 
   useEffect(() => {
     if (game?.current_sabotage !== 'reactor' || !game?.reactor_started_at) {
-      setTimeLeft(90)
+      setTimeLeft(45)
       return
     }
     const interval = setInterval(async () => {
       const elapsed = (Date.now() - new Date(game.reactor_started_at!).getTime()) / 1000
-      const tl = Math.max(0, 90 - Math.floor(elapsed))
+      const tl = Math.max(0, 45 - Math.floor(elapsed))
       setTimeLeft(tl)
       if (tl <= 0) {
         clearInterval(interval)
