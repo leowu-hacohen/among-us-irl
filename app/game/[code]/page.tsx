@@ -37,6 +37,7 @@ export default function GamePage() {
   const [reportedBodyName, setReportedBodyName] = useState('')
   const [timeLeft, setTimeLeft] = useState(90)
   const [roleDrawerOpen, setRoleDrawerOpen] = useState(false)
+  const [mapOpen, setMapOpen] = useState(false)
 
 
   useEffect(() => {
@@ -407,8 +408,39 @@ export default function GamePage() {
         )}
 
         <div className="flex-1 overflow-y-auto">
+          {/* Map thumbnail */}
+          <div className="px-4 pt-4 pb-2">
+            <p className="text-gray-500 text-xs uppercase tracking-widest mb-2">📍 Map</p>
+            <button
+              onClick={() => setMapOpen(true)}
+              className="w-full rounded-xl overflow-hidden border border-white/10 active:scale-95 transition-all"
+            >
+              <img src="/map.png" alt="Map" className="w-full object-cover" style={{ maxHeight: '140px' }} />
+            </button>
+          </div>
           <TaskChecklist gameId={game.id} playerId={player.id} />
         </div>
+
+        {/* Map fullscreen overlay */}
+        {mapOpen && (
+          <div
+            className="fixed inset-0 z-[70] bg-black/95 flex items-center justify-center"
+            onClick={() => setMapOpen(false)}
+          >
+            <img
+              src="/map.png"
+              alt="Map"
+              className="w-full h-full object-contain"
+              onClick={e => e.stopPropagation()}
+            />
+            <button
+              onClick={() => setMapOpen(false)}
+              className="fixed top-4 right-4 w-10 h-10 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center text-white text-xl font-bold transition-all"
+            >
+              ✕
+            </button>
+          </div>
+        )}
 
         {/* Body picker modal */}
         {bodyPickerOpen && (
