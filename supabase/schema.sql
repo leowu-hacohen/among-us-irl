@@ -31,7 +31,8 @@ create table if not exists players (
   name text not null,
   role text,
   is_alive boolean default true,
-  color text default 'red',
+  sprite text,
+  -- Migration: alter table players rename column color to sprite;
   created_at timestamptz default now()
 );
 

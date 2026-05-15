@@ -26,7 +26,7 @@ export interface Player {
   name: string
   role: Role | null
   is_alive: boolean
-  color: string
+  sprite: string
   created_at: string
 }
 

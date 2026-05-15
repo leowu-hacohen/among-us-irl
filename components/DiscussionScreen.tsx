@@ -19,20 +19,6 @@ interface Props {
 
 const TOTAL = 120
 
-const COLOR_ICONS: Record<string, { emoji: string; bg: string }> = {
-  red:    { emoji: '🚀', bg: '#7f1d1d' },
-  blue:   { emoji: '🧊', bg: '#1e3a5f' },
-  green:  { emoji: '🌿', bg: '#14532d' },
-  yellow: { emoji: '⚡', bg: '#713f12' },
-  purple: { emoji: '🔮', bg: '#3b0764' },
-  orange: { emoji: '🔥', bg: '#7c2d12' },
-  pink:   { emoji: '🌸', bg: '#831843' },
-  cyan:   { emoji: '❄️', bg: '#164e63' },
-  lime:   { emoji: '🐸', bg: '#1a2e05' },
-  maroon: { emoji: '🦇', bg: '#450a0a' },
-}
-const FALLBACK = { emoji: '👾', bg: '#1a1a2e' }
-function getIcon(player: Player) { return COLOR_ICONS[player.color] ?? FALLBACK }
 
 type VotePhase = 'waiting' | 'voting' | 'confirming' | 'voted' | 'results'
 
@@ -251,18 +237,18 @@ export default function DiscussionScreen({
               const voter = players.find(p => p.id === v.voter_id)
               const target = players.find(p => p.id === v.target_id)
               if (!voter) return null
-              const voterIcon = getIcon(voter)
-              const targetIcon = target ? getIcon(target) : null
               return (
                 <div key={v.voter_id} className="flex items-center gap-3 px-4 py-2 rounded-xl bg-white/5 border border-white/10">
-                  <div className="w-8 h-8 rounded-full flex items-center justify-center text-lg flex-shrink-0"
-                    style={{ background: voterIcon.bg }}>{voterIcon.emoji}</div>
+                  <div className="w-8 h-8 rounded-full overflow-hidden flex-shrink-0 flex items-center justify-center" style={{ background: '#0d0d1a' }}>
+                    <img src={`/sprites/${voter.sprite}.png`} className="w-full h-full object-contain" style={{ mixBlendMode: 'screen' }} />
+                  </div>
                   <span className="text-white text-sm font-medium flex-1">{voter.name}</span>
                   <span className="text-gray-500 text-xs">→</span>
-                  {targetIcon && target ? (
+                  {target ? (
                     <div className="flex items-center gap-2">
-                      <div className="w-8 h-8 rounded-full flex items-center justify-center text-lg"
-                        style={{ background: targetIcon.bg }}>{targetIcon.emoji}</div>
+                      <div className="w-8 h-8 rounded-full overflow-hidden flex items-center justify-center" style={{ background: '#0d0d1a' }}>
+                        <img src={`/sprites/${target.sprite}.png`} className="w-full h-full object-contain" style={{ mixBlendMode: 'screen' }} />
+                      </div>
                       <span className="text-red-300 text-sm font-bold">{target.name}</span>
                     </div>
                   ) : (
@@ -279,7 +265,6 @@ export default function DiscussionScreen({
       {phase !== 'results' && (
         <div className="grid grid-cols-3 gap-3 my-4">
           {players.map(p => {
-            const icon = getIcon(p)
             const isSelected = selectedId === p.id
             const hasVoted = votedPlayerIds.has(p.id)
             const isMe = p.id === playerId
@@ -295,9 +280,9 @@ export default function DiscussionScreen({
                   isMe ? 'border-blue-500/50 bg-blue-900/20' :
                   'border-white/10 bg-white/5'
                 } ${!selectable ? 'opacity-70' : ''}`}>
-                <div className="w-14 h-14 rounded-full flex items-center justify-center text-3xl relative"
-                  style={{ background: icon.bg, border: isSelected ? '2px solid #facc15' : '2px solid rgba(255,255,255,0.1)' }}>
-                  {icon.emoji}
+                <div className="w-14 h-14 rounded-full overflow-hidden relative flex items-center justify-center"
+                  style={{ background: '#0d0d1a', border: isSelected ? '2px solid #facc15' : '2px solid rgba(255,255,255,0.1)' }}>
+                  <img src={`/sprites/${p.sprite}.png`} className="w-full h-full object-contain" style={{ mixBlendMode: 'screen' }} />
                   {isDead && (
                     <div className="absolute inset-0 rounded-full bg-black/75 flex items-center justify-center">
                       <span className="text-red-500 text-2xl font-black leading-none">✕</span>

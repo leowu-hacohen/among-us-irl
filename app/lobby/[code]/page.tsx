@@ -5,18 +5,6 @@ import { supabase } from '@/lib/supabase'
 import { TASK_POOL } from '@/lib/tasks'
 import type { Game, Player } from '@/types/game'
 
-const COLOR_MAP: Record<string, string> = {
-  red: 'bg-red-500',
-  blue: 'bg-blue-500',
-  green: 'bg-green-500',
-  yellow: 'bg-yellow-400',
-  purple: 'bg-purple-500',
-  orange: 'bg-orange-500',
-  pink: 'bg-pink-500',
-  cyan: 'bg-cyan-400',
-  lime: 'bg-lime-400',
-  maroon: 'bg-rose-800',
-}
 
 export default function LobbyPage() {
   const router = useRouter()
@@ -176,7 +164,13 @@ export default function LobbyPage() {
               key={player.id}
               className="flex items-center gap-3 px-4 py-3 rounded-xl bg-[#1a1a2e] border border-white/5"
             >
-              <div className={`w-4 h-4 rounded-full ${COLOR_MAP[player.color] || 'bg-gray-400'} flex-shrink-0`} />
+              <div className="w-8 h-8 rounded-full overflow-hidden flex-shrink-0 flex items-center justify-center" style={{ background: '#0d0d1a' }}>
+                <img
+                  src={`/sprites/${player.role === 'reactor_1' ? 'reactor1' : player.role === 'reactor_2' ? 'reactor2' : player.sprite}.png`}
+                  className="w-full h-full object-contain"
+                  style={{ mixBlendMode: 'screen' }}
+                />
+              </div>
               <span className="text-white font-medium">{player.name}</span>
               {(player.role === 'reactor_1' || player.role === 'reactor_2') && (
                 <span className="text-cyan-400 text-xs font-bold uppercase">
