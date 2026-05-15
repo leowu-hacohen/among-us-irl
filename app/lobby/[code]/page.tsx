@@ -92,16 +92,20 @@ export default function LobbyPage() {
     if (!game || players.length < 3) return
     setStarting(true)
 
+    // Fresh fetch so reactor roles set by other players aren't stale in local state
+    const { data: freshPlayers } = await supabase.from('players').select().eq('game_id', game.id)
+    const roster = freshPlayers ?? players
+
     // Assign roles: 2 random impostors, rest crewmates — skip reactors
-    const nonReactors = players.filter(p => p.role !== 'reactor_1' && p.role !== 'reactor_2')
+    const nonReactors = roster.filter(p => p.role !== 'reactor_1' && p.role !== 'reactor_2')
     const shuffled = [...nonReactors].sort(() => Math.random() - 0.5)
     const impostorIds = new Set(shuffled.slice(0, 2).map(p => p.id))
     await Promise.all(nonReactors.map(p =>
       supabase.from('players').update({ role: impostorIds.has(p.id) ? 'impostor' : 'crewmate' }).eq('id', p.id)
     ))
 
-    // Insert a copy of all tasks for each player individually
-    const taskRows = players.flatMap(player =>
+    // Insert tasks for all players (crewmate-only filtering handled in TaskChecklist)
+    const taskRows = roster.flatMap(player =>
       TASK_POOL.map(t => ({
         game_id: game.id,
         player_id: player.id,
