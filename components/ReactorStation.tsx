@@ -17,6 +17,7 @@ export default function ReactorStation({ game, stationSlot }: Props) {
   const isA = stationSlot === 'reactor_1'
   const stationLabel = isA ? 'A' : 'B'
   const myCode = isA ? game.reactor_code_a : game.reactor_code_b
+  const correctInput = isA ? game.reactor_code_b : game.reactor_code_a
   const myComplete = isA ? game.reactor_station_a_complete : game.reactor_station_b_complete
 
   useEffect(() => {
@@ -36,7 +37,7 @@ export default function ReactorStation({ game, stationSlot }: Props) {
     setSubmitting(true)
     setError('')
 
-    if (input !== myCode) {
+    if (input !== correctInput) {
       setError('Wrong code. Try again.')
       setSubmitting(false)
       return
