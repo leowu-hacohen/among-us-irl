@@ -141,13 +141,13 @@ export default function GamePage() {
       setTimeLeft(90)
       return
     }
-    const interval = setInterval(() => {
+    const interval = setInterval(async () => {
       const elapsed = (Date.now() - new Date(game.reactor_started_at!).getTime()) / 1000
       const tl = Math.max(0, 90 - Math.floor(elapsed))
       setTimeLeft(tl)
       if (tl <= 0) {
         clearInterval(interval)
-        supabase.from('games')
+        await supabase.from('games')
           .update({ game_over: true, winning_team: 'impostors', current_sabotage: 'none' })
           .eq('id', game.id)
           .eq('game_over', false)
