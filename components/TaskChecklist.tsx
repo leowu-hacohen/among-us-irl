@@ -17,7 +17,26 @@ export default function TaskChecklist({ gameId, playerId }: Props) {
     const { data: mine } = await supabase.from('tasks').select().eq('game_id', gameId).eq('player_id', playerId).order('name')
     const { data: all } = await supabase.from('tasks').select().eq('game_id', gameId)
     if (mine) setMyTasks(mine as Task[])
-    if (all) setAllTasks(all as Task[])
+    if (all) {
+      setAllTasks(all as Task[])
+
+      // Check crewmates win: all non-reactor tasks complete
+      const { data: players } = await supabase.from('players').select('id, role').eq('game_id', gameId)
+      if (players) {
+        const reactorIds = new Set(
+          players.filter(p => p.role === 'reactor_1' || p.role === 'reactor_2').map(p => p.id)
+        )
+        const crewTasks = all.filter(t => !reactorIds.has(t.player_id))
+        const total = crewTasks.length
+        const done = crewTasks.filter(t => t.is_complete).length
+        if (total > 0 && done === total) {
+          await supabase.from('games')
+            .update({ game_over: true, winning_team: 'crewmates' })
+            .eq('id', gameId)
+            .eq('game_over', false)
+        }
+      }
+    }
   }
 
   useEffect(() => {
@@ -43,8 +62,17 @@ export default function TaskChecklist({ gameId, playerId }: Props) {
     await supabase.from('tasks').update({ is_complete: true }).eq('id', taskId)
   }
 
-  const total = allTasks.length
-  const done = allTasks.filter(t => t.is_complete).length
+  // Progress counts exclude reactor player tasks
+  const [reactorPlayerIds, setReactorPlayerIds] = useState<Set<string>>(new Set())
+  useEffect(() => {
+    supabase.from('players').select('id, role').eq('game_id', gameId).then(({ data }) => {
+      if (data) setReactorPlayerIds(new Set(data.filter(p => p.role === 'reactor_1' || p.role === 'reactor_2').map(p => p.id)))
+    })
+  }, [gameId])
+
+  const crewTasks = allTasks.filter(t => !reactorPlayerIds.has(t.player_id))
+  const total = crewTasks.length
+  const done = crewTasks.filter(t => t.is_complete).length
   const pct = total === 0 ? 0 : Math.round((done / total) * 100)
 
   if (loading) {
