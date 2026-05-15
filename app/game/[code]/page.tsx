@@ -82,7 +82,7 @@ export default function GamePage() {
           table: 'games',
           filter: `id=eq.${gameData.id}`,
         }, (payload) => {
-          setGame(payload.new as Game)
+          setGame(prev => prev ? { ...prev, ...(payload.new as Partial<Game>) } : payload.new as Game)
         })
         .on('postgres_changes', {
           event: 'INSERT',

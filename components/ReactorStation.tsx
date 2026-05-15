@@ -76,7 +76,23 @@ export default function ReactorStation({ game, stationSlot }: Props) {
 
     const field = isA ? 'reactor_station_a_complete' : 'reactor_station_b_complete'
     await supabase.from('games').update({ [field]: true }).eq('id', game.id)
-    // Clearing is handled reactively by the useEffect watching both station flags
+
+    // Eagerly check: if we're the second station to complete, clear immediately
+    const { data: fresh } = await supabase.from('games').select().eq('id', game.id).single()
+    if (fresh?.reactor_station_a_complete && fresh?.reactor_station_b_complete && fresh?.current_sabotage === 'reactor') {
+      await supabase.from('games')
+        .update({
+          current_sabotage: 'none',
+          reactor_station_a_complete: false,
+          reactor_station_b_complete: false,
+          reactor_started_at: null,
+          reactor_code_a: null,
+          reactor_code_b: null,
+          reactor_cooldown_until: new Date(Date.now() + 2 * 60 * 1000).toISOString(),
+        })
+        .eq('id', game.id)
+        .eq('current_sabotage', 'reactor')
+    }
 
     setSubmitting(false)
   }
