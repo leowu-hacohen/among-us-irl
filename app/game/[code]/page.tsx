@@ -420,7 +420,7 @@ export default function GamePage() {
           </div>
         )}
 
-        <div className="flex-1 overflow-y-auto">
+        <div className="flex-1 overflow-y-auto pb-52">
           {/* Map thumbnail */}
           <div className="px-4 pt-4 pb-2">
             <p className="text-gray-500 text-xs uppercase tracking-widest mb-2">📍 Map</p>
