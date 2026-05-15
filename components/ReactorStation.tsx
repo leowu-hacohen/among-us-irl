@@ -22,7 +22,7 @@ export default function ReactorStation({ game, stationSlot }: Props) {
   const myComplete = isA ? game.reactor_station_a_complete : game.reactor_station_b_complete
 
   useEffect(() => {
-    if (game.current_sabotage !== 'reactor' || !game.reactor_started_at) {
+    if (game.current_sabotage !== 'reactor' || !game.reactor_started_at || game.game_over) {
       setTimeLeft(45)
       return
     }
@@ -39,7 +39,7 @@ export default function ReactorStation({ game, stationSlot }: Props) {
       }
     }, 1000)
     return () => clearInterval(interval)
-  }, [game.current_sabotage, game.reactor_started_at, game.id])
+  }, [game.current_sabotage, game.reactor_started_at, game.id, game.game_over])
 
   // Reactive clear: fires whenever real-time prop update shows both stations done
   useEffect(() => {

@@ -239,7 +239,7 @@ export default function DiscussionScreen({
             <div className="h-full rounded-full transition-all duration-1000"
               style={{ width: `${pct}%`, background: seconds <= 30 ? '#ef4444' : '#fff' }} />
           </div>
-          <span className="text-gray-400 text-xs whitespace-nowrap">{votedPlayerIds.size}/{players.length} voted</span>
+          <span className="text-gray-400 text-xs whitespace-nowrap">{votedPlayerIds.size}/{players.filter(p => p.is_alive && p.role !== 'reactor_1' && p.role !== 'reactor_2').length} voted</span>
         </div>
       )}
 
