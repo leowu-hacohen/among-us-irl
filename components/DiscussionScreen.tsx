@@ -61,7 +61,7 @@ export default function DiscussionScreen({
     const { data: existingVotes } = await supabase.from('votes').select().eq('meeting_id', meetingId)
     const votes: VoteRecord[] = existingVotes ?? []
     const voterIds = new Set(votes.map(v => v.voter_id))
-    const missing = currentPlayers.filter(p => p.is_alive && !voterIds.has(p.id))
+    const missing = currentPlayers.filter(p => p.is_alive && !voterIds.has(p.id) && p.role !== 'reactor_1' && p.role !== 'reactor_2')
 
     if (missing.length > 0) {
       const skipRows = missing.map(p => ({ meeting_id: meetingId, voter_id: p.id, target_id: null }))
@@ -120,7 +120,7 @@ export default function DiscussionScreen({
         setVotedPlayerIds(prev => {
           const next = new Set([...prev, payload.new.voter_id])
           // Tally immediately when all alive players have voted
-          const alivePlayers = playersRef.current.filter(p => p.is_alive)
+          const alivePlayers = playersRef.current.filter(p => p.is_alive && p.role !== 'reactor_1' && p.role !== 'reactor_2')
           if (alivePlayers.length > 0 && next.size >= alivePlayers.length) {
             tallyVotes()
           }
@@ -264,7 +264,7 @@ export default function DiscussionScreen({
       {/* Player grid */}
       {phase !== 'results' && (
         <div className="grid grid-cols-3 gap-3 my-4">
-          {players.map(p => {
+          {players.filter(p => p.role !== 'reactor_1' && p.role !== 'reactor_2').map(p => {
             const isSelected = selectedId === p.id
             const hasVoted = votedPlayerIds.has(p.id)
             const isMe = p.id === playerId
