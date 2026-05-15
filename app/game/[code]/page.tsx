@@ -58,6 +58,17 @@ export default function GamePage() {
       setLoading(false)
       playRoleReveal()
 
+      // Check parity at game start (e.g. 3 impostors vs 3 crewmates)
+      if (allPlayersData) {
+        const aliveImpostors = allPlayersData.filter(p => p.role === 'impostor').length
+        const aliveCrewmates = allPlayersData.filter(p => p.role === 'crewmate').length
+        if (aliveImpostors >= aliveCrewmates && aliveImpostors > 0) {
+          await supabase.from('games')
+            .update({ game_over: true, winning_team: 'impostors' })
+            .eq('id', gameData.id).eq('game_over', false)
+        }
+      }
+
       channel = supabase
         .channel(`game-state-${gameData.id}`)
         .on('postgres_changes', {

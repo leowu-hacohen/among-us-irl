@@ -72,7 +72,7 @@ export default function LobbyPage() {
 
     // Assign roles: 2 impostors, rest crewmates
     const shuffled = [...roster].sort(() => Math.random() - 0.5)
-    const impostorIds = new Set(shuffled.slice(0, 2).map(p => p.id))
+    const impostorIds = new Set(shuffled.slice(0, 3).map(p => p.id))
     await Promise.all(roster.map(p =>
       supabase.from('players').update({ role: impostorIds.has(p.id) ? 'impostor' : 'crewmate' }).eq('id', p.id)
     ))
