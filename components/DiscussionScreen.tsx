@@ -55,6 +55,8 @@ export default function DiscussionScreen({
     if (tallyCalledRef.current) return
     tallyCalledRef.current = true
 
+    console.log('[tallyVotes] gameId:', gameId, 'meetingId:', meetingId)
+
     const currentPlayers = playersRef.current
 
     // Auto-skip alive players who haven't voted (dead players don't vote)
@@ -107,6 +109,7 @@ export default function DiscussionScreen({
       if (remaining) {
         const aliveImpostors = remaining.filter(p => p.role === 'impostor').length
         const aliveCrewmates = remaining.filter(p => p.role === 'crewmate').length
+        console.log('[tallyVotes] parity check — aliveImpostors:', aliveImpostors, 'aliveCrewmates:', aliveCrewmates, 'gameId:', gameId)
         if (aliveImpostors >= aliveCrewmates && aliveImpostors > 0) {
           await supabase.from('games')
             .update({ game_over: true, winning_team: 'impostors' })
@@ -117,7 +120,7 @@ export default function DiscussionScreen({
     setResult({ ejected, tie: tie || maxVotes === 0, votes })
     setPhase('results')
     setTimeout(onEnd, 6000)
-  }, [meetingId, onEnd])
+  }, [meetingId, onEnd, gameId])
 
   // Subscribe to meeting timer + votes
   useEffect(() => {

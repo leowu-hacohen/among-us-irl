@@ -242,7 +242,8 @@ export default function GamePage() {
     if (alivePlayers) {
       const aliveImpostors = alivePlayers.filter(p => p.role === 'impostor').length
       const aliveCrewmates = alivePlayers.filter(p => p.role === 'crewmate').length
-      if (aliveImpostors >= aliveCrewmates) {
+      console.log('[markSelfKilled] aliveImpostors:', aliveImpostors, 'aliveCrewmates:', aliveCrewmates)
+      if (aliveImpostors >= aliveCrewmates && aliveImpostors > 0) {
         await supabase.from('games')
           .update({ game_over: true, winning_team: 'impostors' })
           .eq('id', game.id)
