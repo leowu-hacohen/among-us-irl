@@ -47,8 +47,9 @@ export default function ReactorStation({ game, stationSlot }: Props) {
       !game.reactor_station_a_complete ||
       !game.reactor_station_b_complete
     ) return
-    supabase.from('games')
-      .update({
+
+    const clear = async () => {
+      await supabase.from('games').update({
         current_sabotage: 'none',
         reactor_station_a_complete: false,
         reactor_station_b_complete: false,
@@ -59,7 +60,8 @@ export default function ReactorStation({ game, stationSlot }: Props) {
       })
       .eq('id', game.id)
       .eq('current_sabotage', 'reactor')
-      .then(() => {})
+    }
+    clear()
   }, [game.reactor_station_a_complete, game.reactor_station_b_complete, game.current_sabotage, game.id])
 
 
@@ -79,7 +81,7 @@ export default function ReactorStation({ game, stationSlot }: Props) {
 
     // Eagerly check: if we're the second station to complete, clear immediately
     const { data: fresh } = await supabase.from('games').select().eq('id', game.id).single()
-    if (fresh?.reactor_station_a_complete && fresh?.reactor_station_b_complete && fresh?.current_sabotage === 'reactor') {
+    if (fresh?.reactor_station_a_complete && fresh?.reactor_station_b_complete) {
       await supabase.from('games')
         .update({
           current_sabotage: 'none',
@@ -91,7 +93,6 @@ export default function ReactorStation({ game, stationSlot }: Props) {
           reactor_cooldown_until: new Date(Date.now() + 2 * 60 * 1000).toISOString(),
         })
         .eq('id', game.id)
-        .eq('current_sabotage', 'reactor')
     }
 
     setSubmitting(false)
