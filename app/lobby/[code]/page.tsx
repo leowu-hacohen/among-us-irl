@@ -81,7 +81,9 @@ export default function LobbyPage() {
   async function selectReactor(slot: 'reactor_1' | 'reactor_2') {
     if (!myPlayerId || settingReactor) return
     setSettingReactor(true)
-    await supabase.from('players').update({ role: slot }).eq('id', myPlayerId)
+    const reactorName = slot === 'reactor_1' ? 'Reactor 1' : 'Reactor 2'
+    const reactorSprite = slot === 'reactor_1' ? 'reactor1' : 'reactor2'
+    await supabase.from('players').update({ role: slot, name: reactorName, sprite: reactorSprite }).eq('id', myPlayerId)
     setReactorPickerOpen(false)
     setSettingReactor(false)
   }
