@@ -165,6 +165,15 @@ export default function DiscussionScreen({
           </button>
         </div>
       )}
+
+      {/* Per-player local escape hatch — does not end the meeting for others */}
+      <div className={isCaller && timerRunning ? 'pt-2' : 'mt-auto pt-4'}>
+        <button onClick={onEnd}
+          className="w-full py-3 rounded-xl font-bold text-sm uppercase tracking-widest active:scale-95 border border-white/15 text-gray-300 hover:text-white hover:border-white/30 transition-colors"
+          style={{ background: 'transparent' }}>
+          Leave Meeting
+        </button>
+      </div>
     </div>
   )
 }
