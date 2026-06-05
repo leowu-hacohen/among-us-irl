@@ -15,6 +15,7 @@ export default function TaskChecklist({ gameId, playerId, isAlive }: Props) {
   const [totalCrewTasks, setTotalCrewTasks] = useState(0)
   const [doneCrewTasks, setDoneCrewTasks] = useState(0)
   const [loading, setLoading] = useState(true)
+  const [confirmingTaskId, setConfirmingTaskId] = useState<string | null>(null)
 
   async function fetchTasks() {
     const [{ data: mine }, { data: all }, { data: players }] = await Promise.all([
@@ -94,7 +95,7 @@ export default function TaskChecklist({ gameId, playerId, isAlive }: Props) {
         </div>
       ) : current ? (
         <button
-          onClick={() => isAlive && completeTask(current.id)}
+          onClick={() => isAlive && setConfirmingTaskId(current.id)}
           disabled={!isAlive}
           className={`rounded-xl p-4 border text-left flex items-start gap-3 transition-all active:scale-[0.98] w-full ${
             !isAlive
@@ -116,6 +117,25 @@ export default function TaskChecklist({ gameId, playerId, isAlive }: Props) {
           </div>
         </button>
       ) : null}
+
+      {confirmingTaskId && current && confirmingTaskId === current.id && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/80 px-6">
+          <div className="bg-[#1a1a2e] rounded-2xl p-6 w-full max-w-sm border border-white/10 text-center flex flex-col gap-4">
+            <p className="text-4xl">{current.emoji}</p>
+            <p className="text-white font-bold text-lg">Finished &quot;{current.name}&quot;?</p>
+            <p className="text-gray-400 text-sm">You can&apos;t undo this.</p>
+            <button onClick={() => { const id = confirmingTaskId; setConfirmingTaskId(null); completeTask(id) }}
+              className="w-full py-4 rounded-xl font-black text-lg uppercase tracking-wider active:scale-95"
+              style={{ background: 'linear-gradient(to bottom, #16a34a, #15803d)', color: '#fff' }}>
+              Yes — Mark Complete
+            </button>
+            <button onClick={() => setConfirmingTaskId(null)}
+              className="w-full py-3 text-gray-400 hover:text-white text-sm uppercase tracking-wider">
+              Cancel
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

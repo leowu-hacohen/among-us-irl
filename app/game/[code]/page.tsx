@@ -42,6 +42,7 @@ export default function GamePage() {
   const [reactorTimeLeft, setReactorTimeLeft] = useState(0)
   const [cooldownNow, setCooldownNow] = useState(Date.now())
   const [sabotaging, setSabotaging] = useState(false)
+  const [confirmingMeeting, setConfirmingMeeting] = useState(false)
 
   useEffect(() => {
     const playerId = localStorage.getItem('playerId')
@@ -135,7 +136,7 @@ export default function GamePage() {
 
     const { data: bodyCheck } = await supabase.from('players').select('is_alive').eq('id', selectedBodyId).single()
     if (!bodyCheck || bodyCheck.is_alive) {
-      setReportError("That player hasn't marked themselves as killed.")
+      setReportError("That player hasn't marked themselves as dead.")
       setReportingBody(false)
       return
     }
@@ -300,7 +301,7 @@ export default function GamePage() {
                 className="mt-1 px-3 py-1 rounded-lg text-xs font-bold uppercase tracking-wider active:scale-95 transition-all"
                 style={{ background: '#3f0000', color: '#f87171', border: '1px solid #7f1d1d' }}
               >
-                ☠ Killed
+                ☠ Mark Me Dead
               </button>
             )}
           </div>
@@ -317,8 +318,8 @@ export default function GamePage() {
           <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/80 px-6">
             <div className="bg-[#1a1a2e] rounded-2xl p-6 w-full max-w-sm border border-white/10 text-center flex flex-col gap-4">
               <p className="text-4xl">☠️</p>
-              <p className="text-white font-bold text-lg">Mark yourself as killed?</p>
-              <p className="text-gray-400 text-sm">You'll be X'd out in the next emergency meeting.</p>
+              <p className="text-white font-bold text-lg">Mark yourself as dead?</p>
+              <p className="text-gray-400 text-sm">Use this if you were killed by an impostor OR voted out. You&apos;ll show as eliminated to everyone.</p>
               <button onClick={markSelfKilled}
                 className="w-full py-4 rounded-xl font-black text-lg uppercase tracking-wider active:scale-95"
                 style={{ background: 'linear-gradient(to bottom, #dc2626, #991b1b)', color: '#fff' }}>
@@ -423,7 +424,7 @@ export default function GamePage() {
             style={{ background: '#1a1a2e', color: '#d1d5db' }}>
             {reportingBody ? 'Reporting...' : '🔍 Report Body'}
           </button>
-          {player.role === 'impostor' && player.is_alive && game.current_sabotage === 'none' && (() => {
+          {getConfig(game).reactorEnabled && player.role === 'impostor' && player.is_alive && game.current_sabotage === 'none' && (() => {
             const until = game.reactor_cooldown_until ? new Date(game.reactor_cooldown_until).getTime() : 0
             const cooling = until > cooldownNow
             const secsLeft = cooling ? Math.ceil((until - cooldownNow) / 1000) : 0
@@ -440,7 +441,7 @@ export default function GamePage() {
               </button>
             )
           })()}
-          <button onClick={callMeeting}
+          <button onClick={() => setConfirmingMeeting(true)}
             disabled={callingMeeting || screen !== 'game'}
             className="w-full py-5 rounded-2xl font-black text-xl uppercase tracking-widest transition-all active:scale-95 disabled:opacity-50"
             style={{
@@ -452,6 +453,26 @@ export default function GamePage() {
             {callingMeeting ? 'Calling...' : '🚨 Emergency Meeting'}
           </button>
         </div>
+
+        {confirmingMeeting && (
+          <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/80 px-6">
+            <div className="bg-[#1a1a2e] rounded-2xl p-6 w-full max-w-sm border border-white/10 text-center flex flex-col gap-4">
+              <p className="text-4xl">🚨</p>
+              <p className="text-white font-bold text-lg">Call emergency meeting?</p>
+              <p className="text-gray-400 text-sm">Everyone will be pulled into the discussion screen.</p>
+              <button onClick={() => { setConfirmingMeeting(false); callMeeting() }}
+                disabled={callingMeeting}
+                className="w-full py-4 rounded-xl font-black text-lg uppercase tracking-wider active:scale-95 disabled:opacity-50"
+                style={{ background: 'linear-gradient(to bottom, #dc2626, #991b1b)', color: '#fff' }}>
+                {callingMeeting ? 'Calling...' : 'Yes — Call Meeting'}
+              </button>
+              <button onClick={() => setConfirmingMeeting(false)}
+                className="w-full py-3 text-gray-400 hover:text-white text-sm uppercase tracking-wider">
+                Cancel
+              </button>
+            </div>
+          </div>
+        )}
       </div>
     </>
   )

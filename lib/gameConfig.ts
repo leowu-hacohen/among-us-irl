@@ -7,6 +7,7 @@ export interface GameConfig {
   reactorCooldownMs: number
   defaultTaskCount: number
   gameCodeLength: number
+  reactorEnabled: boolean
 }
 
 const BASE_CONFIG: GameConfig = {
@@ -16,6 +17,7 @@ const BASE_CONFIG: GameConfig = {
   reactorCooldownMs: 2 * 60 * 1000,
   defaultTaskCount: 3,
   gameCodeLength: 4,
+  reactorEnabled: false,
 }
 
 const TEST_OVERRIDES: Partial<GameConfig> = {
