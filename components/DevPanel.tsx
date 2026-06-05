@@ -12,7 +12,7 @@ interface Props {
 
 interface DevAction {
   label: string
-  group: 'tasks' | 'kill' | 'meeting' | 'reactor'
+  group: 'role' | 'tasks' | 'kill' | 'meeting' | 'reactor'
   run: () => Promise<void>
 }
 
@@ -35,6 +35,17 @@ export default function DevPanel({ game, player }: Props) {
 
   function buildActions(): DevAction[] {
     const actions: DevAction[] = []
+
+    actions.push({
+      label: 'Make me impostor',
+      group: 'role',
+      run: async () => { await supabase.from('players').update({ role: 'impostor' }).eq('id', player.id) },
+    })
+    actions.push({
+      label: 'Make me crewmate',
+      group: 'role',
+      run: async () => { await supabase.from('players').update({ role: 'crewmate' }).eq('id', player.id) },
+    })
 
     const myTasks = tasks.filter(t => t.player_id === player.id && !t.is_complete)
     actions.push({
@@ -135,6 +146,7 @@ export default function DevPanel({ game, player }: Props) {
 
   const actions = buildActions()
   const groups: { key: DevAction['group']; title: string }[] = [
+    { key: 'role', title: 'Role' },
     { key: 'tasks', title: 'Tasks' },
     { key: 'reactor', title: 'Reactor' },
     { key: 'kill', title: 'Kill' },
