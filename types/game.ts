@@ -41,6 +41,7 @@ export interface Task {
   emoji: string
   description: string
   is_complete: boolean
+  task_order: number
 }
 
 export interface Sabotage {

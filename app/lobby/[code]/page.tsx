@@ -83,16 +83,18 @@ export default function LobbyPage() {
       supabase.from('players').update({ role: impostorIds.has(p.id) ? 'impostor' : 'crewmate' }).eq('id', p.id)
     ))
 
-    const taskRows = roster.flatMap(player =>
-      TASK_POOL.map(t => ({
+    const taskRows = roster.flatMap(player => {
+      const perPlayer = [...TASK_POOL].sort(() => Math.random() - 0.5)
+      return perPlayer.map((t, i) => ({
         game_id: game.id,
         player_id: player.id,
         name: t.name,
         emoji: t.emoji,
         description: t.description,
         is_complete: false,
+        task_order: i,
       }))
-    )
+    })
     await supabase.from('tasks').insert(taskRows)
     await supabase.from('games').update({ status: 'playing' }).eq('id', game.id)
   }

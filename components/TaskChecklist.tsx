@@ -18,7 +18,7 @@ export default function TaskChecklist({ gameId, playerId, isAlive }: Props) {
 
   async function fetchTasks() {
     const [{ data: mine }, { data: all }, { data: players }] = await Promise.all([
-      supabase.from('tasks').select().eq('game_id', gameId).eq('player_id', playerId).order('name'),
+      supabase.from('tasks').select().eq('game_id', gameId).eq('player_id', playerId).order('task_order'),
       supabase.from('tasks').select().eq('game_id', gameId),
       supabase.from('players').select('id, role').eq('game_id', gameId),
     ])
@@ -59,17 +59,20 @@ export default function TaskChecklist({ gameId, playerId, isAlive }: Props) {
   }, [gameId])
 
   const pct = totalCrewTasks === 0 ? 0 : Math.round((doneCrewTasks / totalCrewTasks) * 100)
+  const myDone = myTasks.filter(t => t.is_complete).length
+  const current = myTasks.find(t => !t.is_complete) ?? null
+  const allDone = myTasks.length > 0 && !current
 
   if (loading) {
     return <div className="px-4 py-4 text-center text-gray-400 animate-pulse text-sm">Loading tasks...</div>
   }
 
   return (
-    <div className="flex flex-col gap-2 px-3 py-3">
-      {/* Progress bar */}
+    <div className="flex flex-col gap-3 px-3 py-3">
+      {/* Progress bar — counts all crew tasks, unchanged */}
       <div>
         <div className="flex justify-between text-[10px] text-gray-400 mb-1 uppercase tracking-wider">
-          <span>Tasks</span>
+          <span>Crew Progress</span>
           <span>{pct}% complete</span>
         </div>
         <div className="w-full h-2 rounded-full bg-white/10 overflow-hidden">
@@ -77,43 +80,42 @@ export default function TaskChecklist({ gameId, playerId, isAlive }: Props) {
         </div>
       </div>
 
-      {/* Task grid */}
-      <div className="grid grid-cols-2 gap-1.5">
-        {myTasks.map(task => (
-          <button
-            key={task.id}
-            onClick={() => !task.is_complete && isAlive && completeTask(task.id)}
-            disabled={task.is_complete || !isAlive}
-            className={`rounded-xl p-2.5 border text-left flex items-start gap-2 transition-all active:scale-95 w-full ${
-              task.is_complete
-                ? 'bg-green-900/30 border-green-700/40'
-                : !isAlive
-                  ? 'bg-white/5 border-white/5 opacity-40'
-                  : 'bg-[#1a1a2e] border-white/10 active:bg-[#22223b]'
-            }`}
-          >
-            <div className="flex-shrink-0 mt-0.5">
-              {task.is_complete ? (
-                <div className="w-4 h-4 rounded-full bg-green-500 flex items-center justify-center">
-                  <svg className="w-2.5 h-2.5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                  </svg>
-                </div>
-              ) : (
-                <div className="w-4 h-4 rounded-full border-2 border-white/30" />
-              )}
-            </div>
-            <div className="flex flex-col gap-0.5 min-w-0">
-              <p className={`font-bold text-[11px] leading-tight truncate ${task.is_complete ? 'text-green-400 line-through' : 'text-white'}`}>
-                {task.emoji} {task.name}
-              </p>
-              <p className={`text-[10px] leading-tight line-clamp-2 ${task.is_complete ? 'text-green-700 line-through' : 'text-gray-500'}`}>
-                {task.description}
-              </p>
-            </div>
-          </button>
-        ))}
+      {/* Personal progress */}
+      <div className="flex justify-between items-baseline text-[10px] uppercase tracking-wider text-gray-400">
+        <span>Your Task</span>
+        <span>
+          {allDone ? 'All Done' : `${myDone + 1} of ${myTasks.length}`}
+        </span>
       </div>
+
+      {allDone ? (
+        <div className="rounded-xl p-4 border border-green-700/40 bg-green-900/20 text-center">
+          <p className="text-green-400 font-black text-sm uppercase tracking-widest">✓ All tasks complete</p>
+        </div>
+      ) : current ? (
+        <button
+          onClick={() => isAlive && completeTask(current.id)}
+          disabled={!isAlive}
+          className={`rounded-xl p-4 border text-left flex items-start gap-3 transition-all active:scale-[0.98] w-full ${
+            !isAlive
+              ? 'bg-white/5 border-white/5 opacity-40'
+              : 'bg-[#1a1a2e] border-white/10 active:bg-[#22223b]'
+          }`}
+        >
+          <div className="flex-shrink-0 mt-0.5">
+            <div className="w-5 h-5 rounded-full border-2 border-white/30" />
+          </div>
+          <div className="flex flex-col gap-1 min-w-0">
+            <p className="font-bold text-base leading-tight text-white">
+              {current.emoji} {current.name}
+            </p>
+            <p className="text-xs leading-snug text-gray-400">
+              {current.description}
+            </p>
+            <p className="mt-1 text-[10px] uppercase tracking-widest text-gray-500">Tap when done</p>
+          </div>
+        </button>
+      ) : null}
     </div>
   )
 }

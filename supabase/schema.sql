@@ -49,8 +49,12 @@ create table if not exists tasks (
   name text not null,
   emoji text not null,
   description text,
-  is_complete boolean default false
+  is_complete boolean default false,
+  task_order int default 0
 );
+
+-- Migration (run if table already exists):
+-- alter table tasks add column if not exists task_order int default 0;
 
 create table if not exists sabotages (
   id uuid primary key default gen_random_uuid(),
