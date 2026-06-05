@@ -3,18 +3,15 @@ import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import { unlockAudio } from '@/lib/sounds'
+import { getConfig } from '@/lib/gameConfig'
+import { PLAYER_SPRITES, spriteName } from '@/lib/sprites'
 
 function generateCode() {
   const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'
+  const length = getConfig().gameCodeLength
   let code = ''
-  for (let i = 0; i < 4; i++) code += chars[Math.floor(Math.random() * chars.length)]
+  for (let i = 0; i < length; i++) code += chars[Math.floor(Math.random() * chars.length)]
   return code
-}
-
-const PLAYER_SPRITES = ['andy', 'arvin', 'bigevan', 'cam', 'evan', 'jerel', 'juan', 'justin', 'leo', 'ronak', 'sanskar', 'tristan']
-
-function spriteName(s: string) {
-  return s.charAt(0).toUpperCase() + s.slice(1)
 }
 
 export default function Home() {
@@ -25,7 +22,7 @@ export default function Home() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
 
-  async function createGame() {
+  async function createGame(isTest = false) {
     if (!selectedSprite) return
     unlockAudio()
     setLoading(true)
@@ -33,7 +30,7 @@ export default function Home() {
     const gameCode = generateCode()
     const { data: game, error: gameError } = await supabase
       .from('games')
-      .insert({ code: gameCode, status: 'lobby', task_count: 3 })
+      .insert({ code: gameCode, status: 'lobby', task_count: getConfig().defaultTaskCount, is_test: isTest })
       .select()
       .single()
     if (gameError || !game) { setError('Failed to create game'); setLoading(false); return }
@@ -147,7 +144,7 @@ export default function Home() {
           <div className="w-full flex flex-col gap-3">
             {error && <p className="text-red-400 text-sm text-center">{error}</p>}
             <button
-              onClick={createGame}
+              onClick={() => createGame(false)}
               disabled={!selectedSprite || loading}
               className="w-full py-4 rounded-xl bg-red-600 hover:bg-red-500 disabled:opacity-40 text-white font-bold text-lg tracking-wider uppercase transition-all active:scale-95 shadow-lg shadow-red-900/50"
             >
@@ -160,6 +157,15 @@ export default function Home() {
             >
               Join Game
             </button>
+            {process.env.NEXT_PUBLIC_ENABLE_TEST_MODE === 'true' && (
+              <button
+                onClick={() => createGame(true)}
+                disabled={!selectedSprite || loading}
+                className="w-full py-3 rounded-xl bg-purple-900/40 hover:bg-purple-900/60 disabled:opacity-40 border border-purple-500/40 text-purple-200 font-bold text-sm tracking-wider uppercase transition-all active:scale-95"
+              >
+                {loading ? 'Creating...' : '🧪 Test Game'}
+              </button>
+            )}
           </div>
         )}
 
@@ -172,7 +178,7 @@ export default function Home() {
               value={code}
               onChange={e => setCode(e.target.value.toUpperCase())}
               onKeyDown={e => e.key === 'Enter' && joinGame()}
-              maxLength={4}
+              maxLength={getConfig().gameCodeLength}
               className="w-full px-4 py-3 rounded-xl bg-[#1a1a2e] border border-white/10 text-white placeholder-gray-500 text-lg font-mono tracking-widest uppercase focus:outline-none focus:border-red-500/50"
             />
             {error && <p className="text-red-400 text-sm text-center">{error}</p>}

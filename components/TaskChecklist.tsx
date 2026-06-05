@@ -1,6 +1,7 @@
 'use client'
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
+import { completeTask } from '@/lib/gameActions'
 import type { Task } from '@/types/game'
 
 interface Props {
@@ -56,10 +57,6 @@ export default function TaskChecklist({ gameId, playerId, isAlive }: Props) {
     return () => { supabase.removeChannel(channel) }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [gameId])
-
-  async function completeTask(taskId: string) {
-    await supabase.from('tasks').update({ is_complete: true }).eq('id', taskId)
-  }
 
   const pct = totalCrewTasks === 0 ? 0 : Math.round((doneCrewTasks / totalCrewTasks) * 100)
 

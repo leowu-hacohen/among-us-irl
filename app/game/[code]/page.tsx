@@ -4,7 +4,11 @@ import { useRouter, useParams } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import DiscussionScreen from '@/components/DiscussionScreen'
 import TaskChecklist from '@/components/TaskChecklist'
+import DevPanel from '@/components/DevPanel'
+import ReactorOverlay from '@/components/ReactorOverlay'
 import { playEmergencyMeeting, playRoleReveal, unlockAudio } from '@/lib/sounds'
+import { killPlayer, callMeeting as callMeetingDb, triggerReactor, failReactor } from '@/lib/gameActions'
+import { getConfig } from '@/lib/gameConfig'
 import type { Player, Game } from '@/types/game'
 
 type Screen = 'game' | 'discussion'
@@ -35,6 +39,9 @@ export default function GamePage() {
   const [reportedBodyName, setReportedBodyName] = useState('')
   const [roleDrawerOpen, setRoleDrawerOpen] = useState(false)
   const [mapOpen, setMapOpen] = useState(false)
+  const [reactorTimeLeft, setReactorTimeLeft] = useState(0)
+  const [cooldownNow, setCooldownNow] = useState(Date.now())
+  const [sabotaging, setSabotaging] = useState(false)
 
   useEffect(() => {
     const playerId = localStorage.getItem('playerId')
@@ -113,17 +120,8 @@ export default function GamePage() {
     setCallingMeeting(true)
     playEmergencyMeeting()
 
-    await supabase.from('meetings').insert({
-      game_id: game.id,
-      type: 'emergency',
-      called_by: player.id,
-      reported_body: null,
-      status: 'voting',
-    })
-
-    const { data: inserted } = await supabase.from('meetings').select('id')
-      .eq('game_id', game.id).order('created_at', { ascending: false }).limit(1).single()
-    setCurrentMeetingId(inserted?.id ?? '')
+    const meetingId = await callMeetingDb({ gameId: game.id, callerId: player.id, type: 'emergency' })
+    setCurrentMeetingId(meetingId ?? '')
     setIsCaller(true)
     setMeetingCallerName(player.name)
     setScreen('discussion')
@@ -147,17 +145,10 @@ export default function GamePage() {
 
     const bodyPlayer = gamePlayers.find(p => p.id === selectedBodyId)
 
-    await supabase.from('meetings').insert({
-      game_id: game.id,
-      type: 'report',
-      called_by: player.id,
-      reported_body: selectedBodyId,
-      status: 'voting',
+    const meetingId = await callMeetingDb({
+      gameId: game.id, callerId: player.id, type: 'report', reportedBody: selectedBodyId,
     })
-
-    const { data: inserted } = await supabase.from('meetings').select('id')
-      .eq('game_id', game.id).order('created_at', { ascending: false }).limit(1).single()
-    setCurrentMeetingId(inserted?.id ?? '')
+    setCurrentMeetingId(meetingId ?? '')
     setIsCaller(true)
     setMeetingCallerName(player.name)
     setMeetingType('report')
@@ -167,23 +158,54 @@ export default function GamePage() {
     setReportingBody(false)
   }
 
-  async function markSelfKilled() {
-    if (!player || !game) return
-    await supabase.from('players').update({ is_alive: false }).eq('id', player.id)
-    setPlayer({ ...player, is_alive: false })
-    setConfirmingKill(false)
-
-    const { data: alivePlayers } = await supabase
-      .from('players').select('role').eq('game_id', game.id).eq('is_alive', true)
-    if (alivePlayers) {
-      const aliveImpostors = alivePlayers.filter(p => p.role === 'impostor').length
-      const aliveCrewmates = alivePlayers.filter(p => p.role === 'crewmate').length
-      if (aliveImpostors >= aliveCrewmates && aliveImpostors > 0) {
-        await supabase.from('games')
-          .update({ game_over: true, winning_team: 'impostors' })
-          .eq('id', game.id).eq('game_over', false)
+  // Countdown + impostor-win on expiry. Runs on every device so the write fires
+  // even if nobody is on a station screen. Conditional update is idempotent.
+  useEffect(() => {
+    if (!game) return
+    if (game.current_sabotage !== 'reactor' || !game.reactor_started_at || game.game_over) {
+      setReactorTimeLeft(0)
+      return
+    }
+    const duration = getConfig(game).reactorDurationSeconds
+    const startMs = new Date(game.reactor_started_at).getTime()
+    const tick = () => {
+      const elapsed = (Date.now() - startMs) / 1000
+      const tl = Math.max(0, duration - Math.floor(elapsed))
+      setReactorTimeLeft(tl)
+      if (tl <= 0) {
+        clearInterval(interval)
+        failReactor(game.id)
       }
     }
+    tick()
+    const interval = setInterval(tick, 1000)
+    return () => clearInterval(interval)
+  }, [game?.current_sabotage, game?.reactor_started_at, game?.game_over, game?.id, game?.is_test])
+
+  // Tick once a second while reactor cooldown is pending so the sabotage button reappears at expiry.
+  useEffect(() => {
+    if (!game?.reactor_cooldown_until) return
+    const until = new Date(game.reactor_cooldown_until).getTime()
+    if (until <= Date.now()) return
+    const interval = setInterval(() => {
+      setCooldownNow(Date.now())
+      if (Date.now() >= until) clearInterval(interval)
+    }, 1000)
+    return () => clearInterval(interval)
+  }, [game?.reactor_cooldown_until])
+
+  async function onSabotage() {
+    if (!game || sabotaging) return
+    setSabotaging(true)
+    await triggerReactor(game.id)
+    setSabotaging(false)
+  }
+
+  async function markSelfKilled() {
+    if (!player || !game) return
+    await killPlayer(game.id, player.id)
+    setPlayer({ ...player, is_alive: false })
+    setConfirmingKill(false)
   }
 
   function handleDiscussionEnd() {
@@ -233,6 +255,10 @@ export default function GamePage() {
 
   return (
     <>
+      {game.current_sabotage === 'reactor' && screen === 'game' && (
+        <ReactorOverlay game={game} timeLeft={reactorTimeLeft} />
+      )}
+
       {screen === 'discussion' && (
         <DiscussionScreen
           gameCode={code}
@@ -383,6 +409,8 @@ export default function GamePage() {
           </div>
         )}
 
+        {game.is_test && <DevPanel game={game} player={player} />}
+
         <div className="fixed bottom-0 left-0 right-0 p-4 bg-gradient-to-t from-[#0d0d1a] via-[#0d0d1a]/95 to-transparent pt-8 flex flex-col gap-3">
           <button onClick={() => setRoleDrawerOpen(true)}
             className="w-full py-3 rounded-xl font-bold text-base uppercase tracking-widest transition-all active:scale-95 border border-white/10"
@@ -395,6 +423,23 @@ export default function GamePage() {
             style={{ background: '#1a1a2e', color: '#d1d5db' }}>
             {reportingBody ? 'Reporting...' : '🔍 Report Body'}
           </button>
+          {player.role === 'impostor' && player.is_alive && game.current_sabotage === 'none' && (() => {
+            const until = game.reactor_cooldown_until ? new Date(game.reactor_cooldown_until).getTime() : 0
+            const cooling = until > cooldownNow
+            const secsLeft = cooling ? Math.ceil((until - cooldownNow) / 1000) : 0
+            return (
+              <button onClick={onSabotage}
+                disabled={sabotaging || cooling || screen !== 'game'}
+                className="w-full py-3 rounded-xl font-bold text-base uppercase tracking-widest transition-all active:scale-95 disabled:opacity-50 border"
+                style={{
+                  background: cooling ? '#1a1a2e' : 'linear-gradient(to bottom, #b45309, #78350f)',
+                  borderColor: cooling ? 'rgba(255,255,255,0.1)' : 'rgba(251,191,36,0.4)',
+                  color: cooling ? '#9ca3af' : '#fff',
+                }}>
+                {sabotaging ? 'Triggering...' : cooling ? `⚛ Cooldown ${secsLeft}s` : '⚛ Sabotage Reactor'}
+              </button>
+            )
+          })()}
           <button onClick={callMeeting}
             disabled={callingMeeting || screen !== 'game'}
             className="w-full py-5 rounded-2xl font-black text-xl uppercase tracking-widest transition-all active:scale-95 disabled:opacity-50"

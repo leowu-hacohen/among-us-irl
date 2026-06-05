@@ -3,6 +3,8 @@ import { useEffect, useState, useCallback } from 'react'
 import { useRouter, useParams } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import { TASK_POOL } from '@/lib/tasks'
+import { getConfig, impostorCount } from '@/lib/gameConfig'
+import { pickBotSprite, spriteName } from '@/lib/sprites'
 import type { Game, Player } from '@/types/game'
 
 export default function LobbyPage() {
@@ -16,8 +18,11 @@ export default function LobbyPage() {
   const [loading, setLoading] = useState(true)
   const [starting, setStarting] = useState(false)
   const [error, setError] = useState('')
+  const [impostorOverride, setImpostorOverride] = useState<number | null>(null)
+  const [addingBots, setAddingBots] = useState(false)
 
   const isHost = game?.host_id === myPlayerId
+  const isTest = !!game?.is_test
 
   const fetchGame = useCallback(async () => {
     const { data } = await supabase.from('games').select().eq('code', code).single()
@@ -63,16 +68,17 @@ export default function LobbyPage() {
   }, [code, router, fetchGame, fetchPlayers])
 
   async function startGame() {
-    if (!game || players.length < 3) return
+    const { minPlayers } = getConfig(game)
+    if (!game || players.length < minPlayers) return
     setStarting(true)
 
     // Fresh fetch to avoid stale local state
     const { data: freshPlayers } = await supabase.from('players').select().eq('game_id', game.id)
     const roster = freshPlayers ?? players
 
-    // Assign roles: 2 impostors, rest crewmates
     const shuffled = [...roster].sort(() => Math.random() - 0.5)
-    const impostorIds = new Set(shuffled.slice(0, 3).map(p => p.id))
+    const override = isTest && impostorOverride != null ? impostorOverride : undefined
+    const impostorIds = new Set(shuffled.slice(0, impostorCount(roster.length, override)).map(p => p.id))
     await Promise.all(roster.map(p =>
       supabase.from('players').update({ role: impostorIds.has(p.id) ? 'impostor' : 'crewmate' }).eq('id', p.id)
     ))
@@ -89,6 +95,24 @@ export default function LobbyPage() {
     )
     await supabase.from('tasks').insert(taskRows)
     await supabase.from('games').update({ status: 'playing' }).eq('id', game.id)
+  }
+
+  async function addBots(n: number) {
+    if (!game || addingBots) return
+    setAddingBots(true)
+    const taken = players.map(p => p.sprite)
+    const rows = []
+    for (let i = 0; i < n; i++) {
+      const sprite = pickBotSprite([...taken, ...rows.map(r => r.sprite)])
+      rows.push({
+        game_id: game.id,
+        name: `Bot ${spriteName(sprite)}`,
+        sprite,
+        is_bot: true,
+      })
+    }
+    await supabase.from('players').insert(rows)
+    setAddingBots(false)
   }
 
   if (loading) {
@@ -126,8 +150,8 @@ export default function LobbyPage() {
       <div className="mt-8 w-full max-w-sm">
         <div className="flex items-center justify-between mb-3">
           <h2 className="text-white font-bold uppercase tracking-wider text-sm">Players ({players.length})</h2>
-          {players.length < 3 && (
-            <span className="text-yellow-400 text-xs">Need {3 - players.length} more</span>
+          {players.length < getConfig(game).minPlayers && (
+            <span className="text-yellow-400 text-xs">Need {getConfig(game).minPlayers - players.length} more</span>
           )}
         </div>
 
@@ -139,6 +163,11 @@ export default function LobbyPage() {
                 <img src={`/sprites/${player.sprite}.png`} className="w-full h-full object-contain" style={{ mixBlendMode: 'screen' }} />
               </div>
               <span className="text-white font-medium">{player.name}</span>
+              {player.is_bot && (
+                <span className="ml-1 px-1.5 py-0.5 rounded text-[10px] font-black uppercase tracking-wider bg-purple-900/40 border border-purple-500/40 text-purple-300">
+                  BOT
+                </span>
+              )}
               {player.id === game?.host_id && (
                 <span className="ml-auto text-yellow-400 text-xs font-bold uppercase">HOST</span>
               )}
@@ -162,11 +191,45 @@ export default function LobbyPage() {
         </div>
       )}
 
+      {isHost && isTest && (
+        <div className="mt-6 w-full max-w-sm flex flex-col gap-3 p-4 rounded-xl border border-purple-500/30 bg-purple-950/20">
+          <p className="text-purple-300 text-xs uppercase tracking-widest font-bold text-center">🧪 Test Mode</p>
+          <div className="flex gap-2">
+            <button onClick={() => addBots(1)} disabled={addingBots}
+              className="flex-1 py-2 rounded-lg bg-purple-900/40 hover:bg-purple-900/60 disabled:opacity-40 border border-purple-500/40 text-purple-200 text-sm font-bold uppercase tracking-wider transition-all active:scale-95">
+              + Add Bot
+            </button>
+            <button onClick={() => addBots(5)} disabled={addingBots}
+              className="flex-1 py-2 rounded-lg bg-purple-900/40 hover:bg-purple-900/60 disabled:opacity-40 border border-purple-500/40 text-purple-200 text-sm font-bold uppercase tracking-wider transition-all active:scale-95">
+              + 5 Bots
+            </button>
+          </div>
+          <div className="flex items-center justify-between gap-3">
+            <span className="text-purple-300 text-xs uppercase tracking-wider">Impostors</span>
+            <div className="flex items-center gap-2">
+              <button onClick={() => setImpostorOverride(v => Math.max(0, (v ?? impostorCount(players.length)) - 1))}
+                className="w-8 h-8 rounded-lg bg-purple-900/40 border border-purple-500/40 text-purple-200 font-bold active:scale-95">−</button>
+              <span className="text-white font-black w-8 text-center tabular-nums">
+                {impostorOverride ?? impostorCount(players.length)}
+              </span>
+              <button onClick={() => setImpostorOverride(v => Math.min(players.length, (v ?? impostorCount(players.length)) + 1))}
+                className="w-8 h-8 rounded-lg bg-purple-900/40 border border-purple-500/40 text-purple-200 font-bold active:scale-95">+</button>
+              {impostorOverride != null && (
+                <button onClick={() => setImpostorOverride(null)}
+                  className="text-purple-400 text-xs uppercase tracking-wider ml-1 hover:text-purple-200">
+                  reset
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
       {isHost && (
         <div className="mt-8 w-full max-w-sm">
-          {players.length < 3 ? (
+          {players.length < getConfig(game).minPlayers ? (
             <div className="text-center py-4 rounded-xl border border-dashed border-white/10 text-gray-500 text-sm">
-              Need at least 3 players to start
+              Need at least {getConfig(game).minPlayers} players to start
             </div>
           ) : (
             <button onClick={startGame} disabled={starting}

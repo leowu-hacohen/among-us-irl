@@ -19,6 +19,7 @@ export interface Game {
   reactor_cooldown_until: string | null
   game_over: boolean
   winning_team: 'crewmates' | 'impostors' | null
+  is_test: boolean
 }
 
 export interface Player {
@@ -28,6 +29,7 @@ export interface Player {
   role: Role | null
   is_alive: boolean
   sprite: string
+  is_bot: boolean
   created_at: string
 }
 

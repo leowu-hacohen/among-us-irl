@@ -2,6 +2,7 @@
 import { useEffect, useState } from 'react'
 import { playEmergencyMeeting } from '@/lib/sounds'
 import { supabase } from '@/lib/supabase'
+import { getConfig } from '@/lib/gameConfig'
 import type { Player } from '@/types/game'
 
 interface Props {
@@ -17,12 +18,11 @@ interface Props {
   reportedBodyName?: string
 }
 
-const TOTAL = 120
-
 export default function DiscussionScreen({
   gameCode, gameId, callerName, meetingId, isCaller, playerId, onEnd,
   playSound = false, meetingType = 'emergency', reportedBodyName = ''
 }: Props) {
+  const TOTAL = getConfig().discussionSeconds
   const [timerRunning, setTimerRunning] = useState(false)
   const [seconds, setSeconds] = useState(TOTAL)
   const [starting, setStarting] = useState(false)

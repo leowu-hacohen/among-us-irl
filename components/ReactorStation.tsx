@@ -1,6 +1,7 @@
 'use client'
 import { useState, useEffect } from 'react'
-import { supabase } from '@/lib/supabase'
+import { getConfig } from '@/lib/gameConfig'
+import { clearReactor, completeReactorStation, failReactor } from '@/lib/gameActions'
 import type { Game } from '@/types/game'
 
 interface Props {
@@ -9,74 +10,41 @@ interface Props {
 }
 
 export default function ReactorStation({ game, stationSlot }: Props) {
+  const { reactorDurationSeconds } = getConfig(game)
   const [input, setInput] = useState('')
   const [error, setError] = useState('')
   const [submitting, setSubmitting] = useState(false)
-  const [timeLeft, setTimeLeft] = useState(45)
+  const [timeLeft, setTimeLeft] = useState(reactorDurationSeconds)
   const [fixing, setFixing] = useState(false)
 
   const isA = stationSlot === 'reactor_1'
-  const stationLabel = isA ? 'A' : 'B'
+  const slot: 'A' | 'B' = isA ? 'A' : 'B'
+  const stationLabel = slot
   const myCode = isA ? game.reactor_code_a : game.reactor_code_b
   const correctInput = isA ? game.reactor_code_b : game.reactor_code_a
   const myComplete = isA ? game.reactor_station_a_complete : game.reactor_station_b_complete
 
   useEffect(() => {
     if (game.current_sabotage !== 'reactor' || !game.reactor_started_at || game.game_over) {
-      setTimeLeft(45)
+      setTimeLeft(reactorDurationSeconds)
       return
     }
-    const interval = setInterval(async () => {
+    const interval = setInterval(() => {
       const elapsed = (Date.now() - new Date(game.reactor_started_at!).getTime()) / 1000
-      const tl = Math.max(0, 45 - Math.floor(elapsed))
+      const tl = Math.max(0, reactorDurationSeconds - Math.floor(elapsed))
       setTimeLeft(tl)
       if (tl <= 0) {
         clearInterval(interval)
-        await supabase.from('games')
-          .update({ game_over: true, winning_team: 'impostors', current_sabotage: 'none' })
-          .eq('id', game.id)
-          .eq('game_over', false)
+        failReactor(game.id)
       }
     }, 1000)
     return () => clearInterval(interval)
-  }, [game.current_sabotage, game.reactor_started_at, game.id, game.game_over])
-
-  // Reactive clear: fires whenever real-time prop update shows both stations done
-  useEffect(() => {
-    if (
-      game.current_sabotage !== 'reactor' ||
-      !game.reactor_station_a_complete ||
-      !game.reactor_station_b_complete
-    ) return
-
-    const clear = async () => {
-      await supabase.from('games').update({
-        current_sabotage: 'none',
-        reactor_station_a_complete: false,
-        reactor_station_b_complete: false,
-        reactor_started_at: null,
-        reactor_code_a: null,
-        reactor_code_b: null,
-        reactor_cooldown_until: new Date(Date.now() + 2 * 60 * 1000).toISOString(),
-      })
-      .eq('id', game.id)
-      .eq('current_sabotage', 'reactor')
-    }
-    clear()
-  }, [game.reactor_station_a_complete, game.reactor_station_b_complete, game.current_sabotage, game.id])
-
+  }, [game.current_sabotage, game.reactor_started_at, game.id, game.game_over, reactorDurationSeconds])
 
   async function manualFix() {
     if (fixing) return
     setFixing(true)
-    await supabase.from('games').update({
-      current_sabotage: 'none',
-      reactor_station_a_complete: false,
-      reactor_station_b_complete: false,
-      reactor_started_at: null,
-      reactor_code_a: null,
-      reactor_code_b: null,
-    }).eq('id', game.id).eq('current_sabotage', 'reactor')
+    await clearReactor(game.id)
     setFixing(false)
   }
 
@@ -91,25 +59,7 @@ export default function ReactorStation({ game, stationSlot }: Props) {
       return
     }
 
-    const field = isA ? 'reactor_station_a_complete' : 'reactor_station_b_complete'
-    await supabase.from('games').update({ [field]: true }).eq('id', game.id)
-
-    // Eagerly check: if we're the second station to complete, clear immediately
-    const { data: fresh } = await supabase.from('games').select().eq('id', game.id).single()
-    if (fresh?.reactor_station_a_complete && fresh?.reactor_station_b_complete) {
-      await supabase.from('games')
-        .update({
-          current_sabotage: 'none',
-          reactor_station_a_complete: false,
-          reactor_station_b_complete: false,
-          reactor_started_at: null,
-          reactor_code_a: null,
-          reactor_code_b: null,
-          reactor_cooldown_until: new Date(Date.now() + 2 * 60 * 1000).toISOString(),
-        })
-        .eq('id', game.id)
-    }
-
+    await completeReactorStation(game.id, slot)
     setSubmitting(false)
   }
 

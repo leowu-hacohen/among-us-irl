@@ -1,6 +1,6 @@
 'use client'
 import { useState } from 'react'
-import { supabase } from '@/lib/supabase'
+import { clearReactor } from '@/lib/gameActions'
 import type { Game } from '@/types/game'
 
 interface Props {
@@ -19,14 +19,7 @@ export default function ReactorOverlay({ game, timeLeft }: Props) {
   async function manualFix() {
     if (fixing) return
     setFixing(true)
-    await supabase.from('games').update({
-      current_sabotage: 'none',
-      reactor_station_a_complete: false,
-      reactor_station_b_complete: false,
-      reactor_started_at: null,
-      reactor_code_a: null,
-      reactor_code_b: null,
-    }).eq('id', game.id).eq('current_sabotage', 'reactor')
+    await clearReactor(game.id)
     setFixing(false)
   }
 

@@ -11,8 +11,10 @@ create table if not exists games (
   reactor_station_a_complete boolean default false,
   reactor_station_b_complete boolean default false,
   reactor_started_at timestamptz,
+  reactor_cooldown_until timestamptz,
   game_over boolean default false,
-  winning_team text
+  winning_team text,
+  is_test boolean default false
 );
 
 -- Migration (run if table already exists):
@@ -22,8 +24,10 @@ create table if not exists games (
 -- alter table games add column if not exists reactor_station_a_complete boolean default false;
 -- alter table games add column if not exists reactor_station_b_complete boolean default false;
 -- alter table games add column if not exists reactor_started_at timestamptz;
+-- alter table games add column if not exists reactor_cooldown_until timestamptz;
 -- alter table games add column if not exists game_over boolean default false;
 -- alter table games add column if not exists winning_team text;
+-- alter table games add column if not exists is_test boolean default false;
 
 create table if not exists players (
   id uuid primary key default gen_random_uuid(),
@@ -33,6 +37,8 @@ create table if not exists players (
   is_alive boolean default true,
   sprite text,
   -- Migration: alter table players rename column color to sprite;
+  is_bot boolean default false,
+  -- Migration: alter table players add column if not exists is_bot boolean default false;
   created_at timestamptz default now()
 );
 
