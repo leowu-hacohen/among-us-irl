@@ -1,12 +1,13 @@
 import type { Metadata } from 'next'
-import { Inter } from 'next/font/google'
+import { Inter, Space_Grotesk } from 'next/font/google'
 import './globals.css'
 
 const inter = Inter({ subsets: ['latin'] })
+const spaceGrotesk = Space_Grotesk({ subsets: ['latin'], variable: '--font-display' })
 
 export const metadata: Metadata = {
   title: 'Among Us IRL',
-  description: 'Real-life Among Us — find the impostor.',
+  description: 'Real-life Among Us. Find the impostor.',
   manifest: '/manifest.json',
 }
 
@@ -20,7 +21,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <meta name="apple-mobile-web-app-title" content="Among Us IRL" />
         <link rel="apple-touch-icon" href="/icon-192.png" />
       </head>
-      <body className={`${inter.className} bg-[#0d0d1a] text-white min-h-screen`}>
+      <body className={`${inter.className} ${spaceGrotesk.variable} bg-[#0d0d1a] text-white min-h-screen`}>
         {children}
       </body>
     </html>

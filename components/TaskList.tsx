@@ -30,7 +30,7 @@ export default function TaskList({ tasks, allTasks, onTaskComplete, isDead = fal
       {/* Overall progress bar */}
       <div>
         <div className="flex justify-between mb-1">
-          <span className="text-xs text-gray-400 uppercase tracking-wider">Task Progress</span>
+          <span className="text-xs text-violet-400/70 uppercase tracking-wider">Task Progress</span>
           <span className="text-xs text-green-400 font-bold">{completedCount}/{totalCount}</span>
         </div>
         <div className="w-full bg-[#1a1a2e] rounded-full h-3 border border-white/5">
@@ -60,10 +60,10 @@ export default function TaskList({ tasks, allTasks, onTaskComplete, isDead = fal
                   </span>
                   {task.is_complete && <span className="text-green-400 text-sm">✓</span>}
                 </div>
-                <p className="text-xs text-gray-400 uppercase tracking-wider mb-1">
+                <p className="text-xs text-violet-400/70 uppercase tracking-wider mb-1">
                   {task.emoji}
                 </p>
-                <p className="text-sm text-gray-300">{task.description}</p>
+                <p className="text-sm text-violet-300/80">{task.description}</p>
               </div>
               {!task.is_complete && !isDead && (
                 <button

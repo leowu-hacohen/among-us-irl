@@ -120,7 +120,7 @@ export default function LobbyPage() {
   if (loading) {
     return (
       <div className="min-h-screen bg-[#0d0d1a] flex items-center justify-center">
-        <p className="text-gray-400 animate-pulse text-lg">Loading lobby...</p>
+        <p className="text-violet-400/70 animate-pulse text-lg">Loading lobby...</p>
       </div>
     )
   }
@@ -130,7 +130,7 @@ export default function LobbyPage() {
       <div className="min-h-screen bg-[#0d0d1a] flex items-center justify-center px-6">
         <div className="text-center">
           <p className="text-red-400 text-xl mb-4">{error}</p>
-          <button onClick={() => router.push('/')} className="text-gray-400 hover:text-white underline">Go Home</button>
+          <button onClick={() => router.push('/')} className="text-violet-400/70 hover:text-white underline">Go Home</button>
         </div>
       </div>
     )
@@ -139,14 +139,14 @@ export default function LobbyPage() {
   return (
     <div className="min-h-screen bg-[#0d0d1a] flex flex-col items-center px-6 py-10">
       <div className="w-full max-w-sm">
-        <p className="text-gray-400 text-xs uppercase tracking-widest text-center mb-1">Game Code</p>
+        <p className="text-violet-400/70 text-xs uppercase tracking-widest text-center mb-1">Game Code</p>
         <div
           className="text-6xl font-black tracking-[0.2em] text-center py-3 rounded-xl bg-[#1a1a2e] border border-white/10"
           style={{ color: '#ef4444', textShadow: '0 0 20px rgba(239,68,68,0.5)' }}
         >
           {code}
         </div>
-        <p className="text-gray-500 text-xs text-center mt-2">Share this code with friends</p>
+        <p className="text-violet-400/50 text-xs text-center mt-2">Share this code with friends</p>
       </div>
 
       <div className="mt-8 w-full max-w-sm">
@@ -185,11 +185,11 @@ export default function LobbyPage() {
         <div className="mt-8 text-center">
           <div className="flex gap-1 justify-center mb-2">
             {[0, 1, 2].map(i => (
-              <div key={i} className="w-2 h-2 rounded-full bg-gray-500 animate-bounce"
+              <div key={i} className="w-2 h-2 rounded-full bg-violet-400/40 animate-bounce"
                 style={{ animationDelay: `${i * 0.15}s` }} />
             ))}
           </div>
-          <p className="text-gray-400 text-sm">Waiting for host to start...</p>
+          <p className="text-violet-400/70 text-sm">Waiting for host to start...</p>
         </div>
       )}
 
@@ -230,7 +230,7 @@ export default function LobbyPage() {
       {isHost && (
         <div className="mt-8 w-full max-w-sm">
           {players.length < getConfig(game).minPlayers ? (
-            <div className="text-center py-4 rounded-xl border border-dashed border-white/10 text-gray-500 text-sm">
+            <div className="text-center py-4 rounded-xl border border-dashed border-white/10 text-violet-400/50 text-sm">
               Need at least {getConfig(game).minPlayers} players to start
             </div>
           ) : (
@@ -239,7 +239,7 @@ export default function LobbyPage() {
               {starting ? 'Starting...' : `Start Game (${players.length} players)`}
             </button>
           )}
-          <p className="text-gray-500 text-xs text-center mt-2">You are the host</p>
+          <p className="text-violet-400/50 text-xs text-center mt-2">You are the host</p>
         </div>
       )}
     </div>

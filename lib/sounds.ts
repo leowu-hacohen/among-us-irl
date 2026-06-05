@@ -18,8 +18,8 @@ function getCtx(): AudioContext {
   return ctx
 }
 
-// Call once on first user tap — keeps AudioContext alive so sounds work
-// even when triggered by network events (not direct taps)
+// Call once on first user tap. Keeps AudioContext alive so sounds work
+// even when triggered by network events (not direct taps).
 export function unlockAudio() {
   try {
     const c = getCtx()

@@ -1,5 +1,5 @@
 'use client'
-import { useState } from 'react'
+import { useMemo, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import { unlockAudio } from '@/lib/sounds'
@@ -16,11 +16,40 @@ function generateCode() {
 
 export default function Home() {
   const router = useRouter()
-  const [selectedSprite, setSelectedSprite] = useState<string | null>(null)
+  const [selectedIndex, setSelectedIndex] = useState(0)
+  const selectedSprite = PLAYER_SPRITES[selectedIndex]
   const [code, setCode] = useState('')
   const [mode, setMode] = useState<'home' | 'join'>('home')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
+
+  const touchStartX = useRef<number | null>(null)
+  const N = PLAYER_SPRITES.length
+
+  // Stable star field: positions, sizes, twinkle timing all fixed once on mount.
+  const stars = useMemo(() => Array.from({ length: 80 }, () => ({
+    size: Math.random() * 2 + 1,
+    top: Math.random() * 100,
+    left: Math.random() * 100,
+    dur: 6 + Math.random() * 8,
+    delay: Math.random() * 8,
+    dx: (Math.random() - 0.5) * 80,
+    dy: (Math.random() - 0.5) * 80,
+  })), [])
+
+  function go(delta: number) {
+    setSelectedIndex(i => ((i + delta) % N + N) % N)
+  }
+
+  function onTouchStart(e: React.TouchEvent) {
+    touchStartX.current = e.touches[0].clientX
+  }
+  function onTouchEnd(e: React.TouchEvent) {
+    if (touchStartX.current == null) return
+    const dx = e.changedTouches[0].clientX - touchStartX.current
+    touchStartX.current = null
+    if (Math.abs(dx) > 40) go(dx < 0 ? 1 : -1)
+  }
 
   async function createGame(isTest = false) {
     if (!selectedSprite) return
@@ -73,15 +102,18 @@ export default function Home() {
     <div className="min-h-screen bg-[#0d0d1a] flex flex-col items-center px-4 py-8">
       {/* Stars */}
       <div className="fixed inset-0 overflow-hidden pointer-events-none">
-        {[...Array(50)].map((_, i) => (
+        {stars.map((s, i) => (
           <div
             key={i}
-            className="absolute rounded-full bg-white opacity-30"
+            className="absolute rounded-full bg-white"
             style={{
-              width: Math.random() * 2 + 1 + 'px',
-              height: Math.random() * 2 + 1 + 'px',
-              top: Math.random() * 100 + '%',
-              left: Math.random() * 100 + '%',
+              width: s.size + 'px',
+              height: s.size + 'px',
+              top: s.top + '%',
+              left: s.left + '%',
+              animation: `twinkle ${s.dur}s ease-in-out ${s.delay}s infinite`,
+              ['--dx' as string]: `${s.dx}px`,
+              ['--dy' as string]: `${s.dy}px`,
             }}
           />
         ))}
@@ -102,41 +134,99 @@ export default function Home() {
           >
             US IRL
           </h1>
-          <p className="mt-2 text-gray-400 text-sm tracking-widest uppercase">Find the impostor</p>
+          <p
+            className="mt-3 text-violet-400/60 text-[11px] font-light text-center"
+            style={{ fontFamily: 'var(--font-display)', letterSpacing: '0.18em' }}
+          >
+            find the impostor
+          </p>
         </div>
 
-        {/* Character selection grid */}
-        <div className="w-full flex flex-col gap-3">
-          <p className="text-gray-400 text-xs uppercase tracking-widest text-center">Choose your character</p>
-          <div className="grid grid-cols-4 gap-2">
-            {PLAYER_SPRITES.map(sprite => (
-              <button
-                key={sprite}
-                onClick={() => setSelectedSprite(sprite)}
-                className="flex flex-col items-center gap-1 p-2 rounded-xl border-2 transition-all active:scale-95"
-                style={{
-                  background: '#111',
-                  borderColor: selectedSprite === sprite ? '#ef4444' : 'rgba(255,255,255,0.08)',
-                  boxShadow: selectedSprite === sprite ? '0 0 14px rgba(239,68,68,0.45)' : 'none',
-                }}
-              >
+        {/* Character carousel */}
+        <div className="w-full flex flex-col items-center gap-3">
+          <p
+            className="text-violet-300 text-base font-black uppercase text-center"
+            style={{
+              letterSpacing: '0.35em',
+              textShadow: '0 0 12px rgba(167,139,250,0.6), 0 0 28px rgba(167,139,250,0.25)',
+            }}
+          >
+            Choose your character
+          </p>
+
+          <div
+            className="relative w-full overflow-hidden select-none"
+            style={{ height: '180px' }}
+            onTouchStart={onTouchStart}
+            onTouchEnd={onTouchEnd}
+          >
+            {PLAYER_SPRITES.map((sprite, i) => {
+              let offset = i - selectedIndex
+              if (offset > N / 2) offset -= N
+              if (offset < -N / 2) offset += N
+              const abs = Math.abs(offset)
+              const visible = abs <= 1
+              const isCenter = offset === 0
+              const xPx = offset * 130
+              const scale = isCenter ? 1 : 0.6
+              return (
                 <div
-                  className="w-full aspect-square flex items-center justify-center overflow-hidden rounded-lg"
-                  style={{ background: '#0d0d1a' }}
+                  key={sprite}
+                  style={{
+                    position: 'absolute',
+                    left: '50%',
+                    top: '50%',
+                    width: '150px',
+                    height: '150px',
+                    marginLeft: '-75px',
+                    marginTop: '-75px',
+                    transform: `translateX(${xPx}px) scale(${scale})`,
+                    opacity: !visible ? 0 : isCenter ? 1 : 0.35,
+                    transition: 'transform 350ms cubic-bezier(0.22, 1, 0.36, 1), opacity 350ms ease',
+                    pointerEvents: 'none',
+                    zIndex: isCenter ? 2 : 1,
+                  }}
                 >
-                  <img
-                    src={`/sprites/${sprite}.png`}
-                    alt={sprite}
-                    className="w-full h-full object-contain"
-                    style={{ mixBlendMode: 'screen' }}
-                  />
+                  <div
+                    className="w-full h-full flex items-center justify-center rounded-2xl border-2"
+                    style={{
+                      background: '#111',
+                      borderColor: isCenter ? '#ef4444' : 'rgba(255,255,255,0.08)',
+                      boxShadow: isCenter ? '0 0 24px rgba(239,68,68,0.45)' : 'none',
+                    }}
+                  >
+                    <img
+                      src={`/sprites/${sprite}.png`}
+                      alt={sprite}
+                      className="w-full h-full object-contain p-3"
+                      style={{ mixBlendMode: 'screen' }}
+                    />
+                  </div>
                 </div>
-                <p className="text-white text-[10px] font-bold truncate w-full text-center">
-                  {spriteName(sprite)}
-                </p>
-              </button>
-            ))}
+              )
+            })}
+
+            <button
+              onClick={() => go(-1)}
+              aria-label="Previous character"
+              className="absolute left-1 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full flex items-center justify-center text-white text-xl font-bold border border-white/10 transition-all active:scale-95 z-10"
+              style={{ background: 'rgba(26,26,46,0.85)' }}
+            >
+              ‹
+            </button>
+            <button
+              onClick={() => go(1)}
+              aria-label="Next character"
+              className="absolute right-1 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full flex items-center justify-center text-white text-xl font-bold border border-white/10 transition-all active:scale-95 z-10"
+              style={{ background: 'rgba(26,26,46,0.85)' }}
+            >
+              ›
+            </button>
           </div>
+
+          <p className="text-white font-black text-base tracking-widest uppercase">
+            {spriteName(selectedSprite)}
+          </p>
         </div>
 
         {/* Home actions */}
@@ -179,7 +269,7 @@ export default function Home() {
               onChange={e => setCode(e.target.value.toUpperCase())}
               onKeyDown={e => e.key === 'Enter' && joinGame()}
               maxLength={getConfig().gameCodeLength}
-              className="w-full px-4 py-3 rounded-xl bg-[#1a1a2e] border border-white/10 text-white placeholder-gray-500 text-lg font-mono tracking-widest uppercase focus:outline-none focus:border-red-500/50"
+              className="w-full px-4 py-3 rounded-xl bg-[#1a1a2e] border border-white/10 text-white placeholder-violet-400/40 text-lg font-mono tracking-widest uppercase focus:outline-none focus:border-red-500/50"
             />
             {error && <p className="text-red-400 text-sm text-center">{error}</p>}
             <button
@@ -191,7 +281,7 @@ export default function Home() {
             </button>
             <button
               onClick={() => { setMode('home'); setError('') }}
-              className="text-gray-400 hover:text-white text-sm uppercase tracking-wider transition-colors"
+              className="text-violet-400/70 hover:text-violet-200 text-sm uppercase tracking-wider transition-colors"
             >
               ← Back
             </button>

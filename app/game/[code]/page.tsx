@@ -227,7 +227,7 @@ export default function GamePage() {
   if (loading) {
     return (
       <div className="min-h-screen bg-[#0d0d1a] flex items-center justify-center">
-        <p className="text-gray-400 animate-pulse text-lg">Loading game...</p>
+        <p className="text-violet-400/70 animate-pulse text-lg">Loading game...</p>
       </div>
     )
   }
@@ -237,7 +237,7 @@ export default function GamePage() {
       <div className="min-h-screen bg-[#0d0d1a] flex items-center justify-center px-6">
         <div className="text-center">
           <p className="text-red-400 text-xl mb-4">{error}</p>
-          <button onClick={() => router.push('/')} className="text-gray-400 hover:text-white underline">Go Home</button>
+          <button onClick={() => router.push('/')} className="text-violet-400/70 hover:text-white underline">Go Home</button>
         </div>
       </div>
     )
@@ -294,7 +294,7 @@ export default function GamePage() {
 
         <div className="px-4 pt-8 pb-4 flex items-center justify-between">
           <div>
-            <p className="text-gray-500 text-xs uppercase tracking-widest">Playing as</p>
+            <p className="text-violet-400/50 text-xs uppercase tracking-widest">Playing as</p>
             <p className="text-white font-bold text-lg">{player.name}</p>
             {!player.is_alive && (
               <span className="inline-flex items-center gap-1 mt-1 text-xs text-red-500 font-bold uppercase tracking-wider">
@@ -310,7 +310,7 @@ export default function GamePage() {
             </button>
           </div>
           <div className="text-right">
-            <p className="text-gray-500 text-xs uppercase tracking-widest">Game</p>
+            <p className="text-violet-400/50 text-xs uppercase tracking-widest">Game</p>
             <p className="text-2xl font-black tracking-widest"
               style={{ color: '#ef4444', textShadow: '0 0 12px rgba(239,68,68,0.5)' }}>
               {code}
@@ -325,7 +325,7 @@ export default function GamePage() {
                 <>
                   <p className="text-4xl text-center">☠️</p>
                   <p className="text-white font-bold text-lg text-center">Mark a player dead</p>
-                  <p className="text-gray-400 text-xs text-center -mt-1">Anyone can mark anyone — for glitches, vote-outs, or impostor cleanup.</p>
+                  <p className="text-violet-400/70 text-xs text-center -mt-1">Anyone can mark anyone, for glitches, vote-outs, or impostor cleanup.</p>
                   <button onClick={() => { setKillPickerOpen(false); markSelfKilled() }}
                     className="w-full py-4 rounded-xl font-black text-lg uppercase tracking-wider active:scale-95"
                     style={{ background: 'linear-gradient(to bottom, #dc2626, #991b1b)', color: '#fff' }}>
@@ -337,14 +337,14 @@ export default function GamePage() {
                     Someone Else
                   </button>
                   <button onClick={() => setKillPickerOpen(false)}
-                    className="w-full py-3 text-gray-400 hover:text-white text-sm uppercase tracking-wider">
+                    className="w-full py-3 text-violet-400/70 hover:text-white text-sm uppercase tracking-wider">
                     Cancel
                   </button>
                 </>
               ) : (
                 <>
                   <p className="text-white font-bold text-lg text-center">Mark someone dead</p>
-                  <p className="text-gray-400 text-xs text-center -mt-2">Tap a name. Already-dead is a silent no-op.</p>
+                  <p className="text-violet-400/70 text-xs text-center -mt-2">Tap a name. Already-dead is a silent no-op.</p>
                   <div className="flex flex-col gap-2 overflow-y-auto">
                     {gamePlayers.map(p => (
                       <button key={p.id}
@@ -355,7 +355,7 @@ export default function GamePage() {
                     ))}
                   </div>
                   <button onClick={() => setKillPickerStep('menu')}
-                    className="w-full py-3 text-gray-400 hover:text-white text-sm uppercase tracking-wider">
+                    className="w-full py-3 text-violet-400/70 hover:text-white text-sm uppercase tracking-wider">
                     ← Back
                   </button>
                 </>
@@ -366,7 +366,7 @@ export default function GamePage() {
 
         <div className="flex-1 overflow-y-auto pb-52">
           <div className="px-4 pt-4 pb-2">
-            <p className="text-gray-500 text-xs uppercase tracking-widest mb-2">📍 Map</p>
+            <p className="text-violet-400/50 text-xs uppercase tracking-widest mb-2">📍 Map</p>
             <button
               onClick={() => setMapOpen(true)}
               className="w-full rounded-xl overflow-hidden border border-white/10 active:scale-95 transition-all"
@@ -413,7 +413,7 @@ export default function GamePage() {
                 {reportingBody ? 'Checking...' : 'Report Body'}
               </button>
               <button onClick={() => { setBodyPickerOpen(false); setSelectedBodyId(null); setReportError('') }}
-                className="w-full py-3 text-gray-400 text-sm uppercase tracking-wider">
+                className="w-full py-3 text-violet-400/70 text-sm uppercase tracking-wider">
                 Cancel
               </button>
             </div>
@@ -427,14 +427,14 @@ export default function GamePage() {
               style={{ maxHeight: '40vh' }}
               onClick={e => e.stopPropagation()}>
               <div className="flex flex-col items-center gap-2 pt-2">
-                <p className="text-gray-500 text-xs uppercase tracking-widest">Your Role</p>
+                <p className="text-violet-400/50 text-xs uppercase tracking-widest">Your Role</p>
                 <p className="text-3xl font-black uppercase tracking-widest"
                   style={{ color: player.role === 'impostor' ? '#f87171' : '#4ade80' }}>
                   {player.role === 'impostor' ? '🔪 Impostor' : '✅ Crewmate'}
                 </p>
               </div>
               <button onClick={() => setRoleDrawerOpen(false)}
-                className="w-full py-3 text-gray-400 text-sm uppercase tracking-wider">
+                className="w-full py-3 text-violet-400/70 text-sm uppercase tracking-wider">
                 Hide Role
               </button>
             </div>
@@ -490,15 +490,15 @@ export default function GamePage() {
             <div className="bg-[#1a1a2e] rounded-2xl p-6 w-full max-w-sm border border-white/10 text-center flex flex-col gap-4">
               <p className="text-4xl">🚨</p>
               <p className="text-white font-bold text-lg">Call emergency meeting?</p>
-              <p className="text-gray-400 text-sm">Everyone will be pulled into the discussion screen.</p>
+              <p className="text-violet-400/70 text-sm">Everyone will be pulled into the discussion screen.</p>
               <button onClick={() => { setConfirmingMeeting(false); callMeeting() }}
                 disabled={callingMeeting}
                 className="w-full py-4 rounded-xl font-black text-lg uppercase tracking-wider active:scale-95 disabled:opacity-50"
                 style={{ background: 'linear-gradient(to bottom, #dc2626, #991b1b)', color: '#fff' }}>
-                {callingMeeting ? 'Calling...' : 'Yes — Call Meeting'}
+                {callingMeeting ? 'Calling...' : 'Yes, Call Meeting'}
               </button>
               <button onClick={() => setConfirmingMeeting(false)}
-                className="w-full py-3 text-gray-400 hover:text-white text-sm uppercase tracking-wider">
+                className="w-full py-3 text-violet-400/70 hover:text-white text-sm uppercase tracking-wider">
                 Cancel
               </button>
             </div>

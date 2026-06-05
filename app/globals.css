@@ -18,3 +18,9 @@ body {
 .animate-pulse-slow {
   animation: pulse-slow 1.5s ease-in-out infinite;
 }
+
+@keyframes twinkle {
+  0%   { opacity: 0.15; transform: translate(0, 0); }
+  50%  { opacity: 0.9;  transform: translate(var(--dx, 30px), var(--dy, -30px)); }
+  100% { opacity: 0.15; transform: translate(0, 0); }
+}

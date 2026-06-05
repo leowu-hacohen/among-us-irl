@@ -67,14 +67,13 @@ export default function TaskChecklist({ gameId, playerId, isAlive }: Props) {
   const allDone = myTasks.length > 0 && !current
 
   if (loading) {
-    return <div className="px-4 py-4 text-center text-gray-400 animate-pulse text-sm">Loading tasks...</div>
+    return <div className="px-4 py-4 text-center text-violet-400/70 animate-pulse text-sm">Loading tasks...</div>
   }
 
   return (
     <div className="flex flex-col gap-3 px-3 py-3">
-      {/* Progress bar — counts all crew tasks, unchanged */}
       <div>
-        <div className="flex justify-between text-[10px] text-gray-400 mb-1 uppercase tracking-wider">
+        <div className="flex justify-between text-[10px] text-violet-400/70 mb-1 uppercase tracking-wider">
           <span>Crew Progress</span>
           <span>{pct}% complete</span>
         </div>
@@ -84,7 +83,7 @@ export default function TaskChecklist({ gameId, playerId, isAlive }: Props) {
       </div>
 
       {/* Personal progress */}
-      <div className="flex justify-between items-baseline text-[10px] uppercase tracking-wider text-gray-400">
+      <div className="flex justify-between items-baseline text-[10px] uppercase tracking-wider text-violet-400/70">
         <span>Your Task</span>
         <span>
           {allDone ? 'All Done' : `${myDone + 1} of ${myTasks.length}`}
@@ -112,10 +111,10 @@ export default function TaskChecklist({ gameId, playerId, isAlive }: Props) {
             <p className="font-bold text-base leading-tight text-white">
               {current.emoji} {current.name}
             </p>
-            <p className="text-xs leading-snug text-gray-400">
+            <p className="text-xs leading-snug text-violet-400/70">
               {current.description}
             </p>
-            <p className="mt-1 text-[10px] uppercase tracking-widest text-gray-500">Tap when done</p>
+            <p className="mt-1 text-[10px] uppercase tracking-widest text-violet-400/50">Tap when done</p>
           </div>
         </button>
       ) : null}
@@ -125,14 +124,14 @@ export default function TaskChecklist({ gameId, playerId, isAlive }: Props) {
           <div className="bg-[#1a1a2e] rounded-2xl p-6 w-full max-w-sm border border-white/10 text-center flex flex-col gap-4">
             <p className="text-4xl">{current.emoji}</p>
             <p className="text-white font-bold text-lg">Finished &quot;{current.name}&quot;?</p>
-            <p className="text-gray-400 text-sm">You can&apos;t undo this.</p>
+            <p className="text-violet-400/70 text-sm">You can&apos;t undo this.</p>
             <button onClick={() => { const id = confirmingTaskId; setConfirmingTaskId(null); completeTask(id) }}
               className="w-full py-4 rounded-xl font-black text-lg uppercase tracking-wider active:scale-95"
               style={{ background: 'linear-gradient(to bottom, #16a34a, #15803d)', color: '#fff' }}>
-              Yes — Mark Complete
+              Yes, Mark Complete
             </button>
             <button onClick={() => setConfirmingTaskId(null)}
-              className="w-full py-3 text-gray-400 hover:text-white text-sm uppercase tracking-wider">
+              className="w-full py-3 text-violet-400/70 hover:text-white text-sm uppercase tracking-wider">
               Cancel
             </button>
           </div>

@@ -73,7 +73,7 @@ export default function ReactorStation({ game, stationSlot }: Props) {
         >
           Reactor {isA ? '1' : '2'}
         </p>
-        <p className="text-gray-500 text-sm uppercase tracking-widest">Standby</p>
+        <p className="text-violet-400/50 text-sm uppercase tracking-widest">Standby</p>
       </div>
     )
   }
@@ -100,25 +100,25 @@ export default function ReactorStation({ game, stationSlot }: Props) {
 
       {/* Code always visible so players can relay it even after completing */}
       <div className="flex flex-col items-center gap-1">
-        <p className="text-xs text-gray-500 uppercase tracking-widest">Reset Code</p>
+        <p className="text-xs text-violet-400/50 uppercase tracking-widest">Reset Code</p>
         <p
           className="text-6xl font-black tracking-[0.25em] text-white"
           style={{ fontVariantNumeric: 'tabular-nums' }}
         >
           {myCode}
         </p>
-        <p className="text-xs text-gray-600 mt-1">Crewmates must enter this code at the other station</p>
+        <p className="text-xs text-violet-400/40 mt-1">Crewmates must enter this code at the other station</p>
       </div>
 
       {myComplete ? (
         <div className="flex flex-col items-center gap-2">
           <p className="text-4xl">✅</p>
           <p className="text-green-400 font-black text-xl uppercase tracking-widest">Station {stationLabel} Complete</p>
-          <p className="text-gray-500 text-sm">Waiting for the other station...</p>
+          <p className="text-violet-400/50 text-sm">Waiting for the other station...</p>
         </div>
       ) : (
         <div className="w-full max-w-xs flex flex-col gap-2">
-          <p className="text-xs text-gray-400 uppercase tracking-widest text-center">Enter Code</p>
+          <p className="text-xs text-violet-400/70 uppercase tracking-widest text-center">Enter Code</p>
           <input
             type="text"
             inputMode="numeric"
@@ -158,7 +158,7 @@ export default function ReactorStation({ game, stationSlot }: Props) {
               className={`px-3 py-1.5 rounded-lg text-xs font-bold uppercase tracking-wider border ${
                 done
                   ? 'bg-green-450/40 border-green-700/50 text-green-400'
-                  : 'bg-white/5 border-white/10 text-gray-500'
+                  : 'bg-white/5 border-white/10 text-violet-400/50'
               }`}
             >
               Station {s}: {done ? 'Complete' : 'Incomplete'}

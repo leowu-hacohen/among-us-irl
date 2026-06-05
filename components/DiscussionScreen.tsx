@@ -126,7 +126,6 @@ export default function DiscussionScreen({
         </div>
       )}
 
-      {/* Player grid — display only */}
       <div className="grid grid-cols-3 gap-3 my-4">
         {players.map(p => {
           const isMe = p.id === playerId
@@ -166,10 +165,9 @@ export default function DiscussionScreen({
         </div>
       )}
 
-      {/* Per-player local escape hatch — does not end the meeting for others */}
       <div className={isCaller && timerRunning ? 'pt-2' : 'mt-auto pt-4'}>
         <button onClick={onEnd}
-          className="w-full py-3 rounded-xl font-bold text-sm uppercase tracking-widest active:scale-95 border border-white/15 text-gray-300 hover:text-white hover:border-white/30 transition-colors"
+          className="w-full py-3 rounded-xl font-bold text-sm uppercase tracking-widest active:scale-95 border border-white/15 text-violet-300/80 hover:text-white hover:border-white/30 transition-colors"
           style={{ background: 'transparent' }}>
           Leave Meeting
         </button>

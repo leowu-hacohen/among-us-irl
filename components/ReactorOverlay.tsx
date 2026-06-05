@@ -32,7 +32,7 @@ export default function ReactorOverlay({ game, timeLeft }: Props) {
       >
         Reactor Sabotaged
       </p>
-      <p className="text-gray-400 text-sm text-center">Fix both reactor stations before time runs out</p>
+      <p className="text-violet-400/70 text-sm text-center">Fix both reactor stations before time runs out</p>
 
       <div
         className="text-7xl font-black tabular-nums mt-2"

@@ -90,7 +90,7 @@ export default function DevPanel({ game, player }: Props) {
 
     if (!sabotageActive) {
       actions.push({
-        label: cooling ? 'Trigger reactor (cooldown active — will no-op)' : 'Trigger reactor',
+        label: cooling ? 'Trigger reactor (cooldown active, will no-op)' : 'Trigger reactor',
         group: 'reactor',
         run: async () => { await triggerReactor(game.id) },
       })
@@ -169,7 +169,7 @@ export default function DevPanel({ game, player }: Props) {
             style={{ maxHeight: '85vh' }} onClick={e => e.stopPropagation()}>
             <div className="flex items-center justify-between">
               <p className="text-purple-300 font-black uppercase tracking-widest text-sm">🧪 Dev Panel</p>
-              <button onClick={() => setOpen(false)} className="text-gray-400 hover:text-white text-sm uppercase tracking-wider">Close</button>
+              <button onClick={() => setOpen(false)} className="text-violet-400/70 hover:text-white text-sm uppercase tracking-wider">Close</button>
             </div>
 
             <div className="overflow-y-auto flex flex-col gap-4">
@@ -178,7 +178,7 @@ export default function DevPanel({ game, player }: Props) {
                 if (items.length === 0) return null
                 return (
                   <div key={g.key} className="flex flex-col gap-1.5">
-                    <p className="text-gray-500 text-[10px] uppercase tracking-widest font-bold">{g.title}</p>
+                    <p className="text-violet-400/50 text-[10px] uppercase tracking-widest font-bold">{g.title}</p>
                     {items.map(a => (
                       <button
                         key={a.label}

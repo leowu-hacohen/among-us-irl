@@ -42,7 +42,7 @@ export default function ReactorRoute() {
       <div className="min-h-screen bg-[#0d0d1a] flex items-center justify-center px-6">
         <div className="text-center">
           <p className="text-red-400 text-xl mb-4">{error}</p>
-          <button onClick={() => router.push('/')} className="text-gray-400 hover:text-white underline">Go Home</button>
+          <button onClick={() => router.push('/')} className="text-violet-400/70 hover:text-white underline">Go Home</button>
         </div>
       </div>
     )
@@ -51,7 +51,7 @@ export default function ReactorRoute() {
   if (!game) {
     return (
       <div className="min-h-screen bg-[#0d0d1a] flex items-center justify-center">
-        <p className="text-gray-400 animate-pulse text-lg">Loading station...</p>
+        <p className="text-violet-400/70 animate-pulse text-lg">Loading station...</p>
       </div>
     )
   }
