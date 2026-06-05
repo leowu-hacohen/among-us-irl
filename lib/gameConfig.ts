@@ -8,6 +8,7 @@ export interface GameConfig {
   defaultTaskCount: number
   gameCodeLength: number
   reactorEnabled: boolean
+  crewmateTaskWinThreshold: number
 }
 
 const BASE_CONFIG: GameConfig = {
@@ -18,6 +19,7 @@ const BASE_CONFIG: GameConfig = {
   defaultTaskCount: 3,
   gameCodeLength: 4,
   reactorEnabled: false,
+  crewmateTaskWinThreshold: 0.5,
 }
 
 const TEST_OVERRIDES: Partial<GameConfig> = {

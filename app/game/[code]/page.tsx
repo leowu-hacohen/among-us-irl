@@ -29,7 +29,8 @@ export default function GamePage() {
   const [soundEnabled, setSoundEnabled] = useState(false)
   const [currentMeetingId, setCurrentMeetingId] = useState('')
   const [isCaller, setIsCaller] = useState(false)
-  const [confirmingKill, setConfirmingKill] = useState(false)
+  const [killPickerOpen, setKillPickerOpen] = useState(false)
+  const [killPickerStep, setKillPickerStep] = useState<'menu' | 'list'>('menu')
   const [gamePlayers, setGamePlayers] = useState<Player[]>([])
   const [bodyPickerOpen, setBodyPickerOpen] = useState(false)
   const [selectedBodyId, setSelectedBodyId] = useState<string | null>(null)
@@ -206,7 +207,11 @@ export default function GamePage() {
     if (!player || !game) return
     await killPlayer(game.id, player.id)
     setPlayer({ ...player, is_alive: false })
-    setConfirmingKill(false)
+  }
+
+  function openKillPicker() {
+    setKillPickerStep('menu')
+    setKillPickerOpen(true)
   }
 
   function handleDiscussionEnd() {
@@ -291,19 +296,18 @@ export default function GamePage() {
           <div>
             <p className="text-gray-500 text-xs uppercase tracking-widest">Playing as</p>
             <p className="text-white font-bold text-lg">{player.name}</p>
-            {!player.is_alive ? (
+            {!player.is_alive && (
               <span className="inline-flex items-center gap-1 mt-1 text-xs text-red-500 font-bold uppercase tracking-wider">
                 ✕ Eliminated
               </span>
-            ) : (
-              <button
-                onClick={() => setConfirmingKill(true)}
-                className="mt-1 px-3 py-1 rounded-lg text-xs font-bold uppercase tracking-wider active:scale-95 transition-all"
-                style={{ background: '#3f0000', color: '#f87171', border: '1px solid #7f1d1d' }}
-              >
-                ☠ Mark Me Dead
-              </button>
             )}
+            <button
+              onClick={openKillPicker}
+              className="mt-1 px-3 py-1 rounded-lg text-xs font-bold uppercase tracking-wider active:scale-95 transition-all"
+              style={{ background: '#3f0000', color: '#f87171', border: '1px solid #7f1d1d' }}
+            >
+              ☠ Mark a Player Dead
+            </button>
           </div>
           <div className="text-right">
             <p className="text-gray-500 text-xs uppercase tracking-widest">Game</p>
@@ -314,21 +318,48 @@ export default function GamePage() {
           </div>
         </div>
 
-        {confirmingKill && (
-          <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/80 px-6">
-            <div className="bg-[#1a1a2e] rounded-2xl p-6 w-full max-w-sm border border-white/10 text-center flex flex-col gap-4">
-              <p className="text-4xl">☠️</p>
-              <p className="text-white font-bold text-lg">Mark yourself as dead?</p>
-              <p className="text-gray-400 text-sm">Use this if you were killed by an impostor OR voted out. You&apos;ll show as eliminated to everyone.</p>
-              <button onClick={markSelfKilled}
-                className="w-full py-4 rounded-xl font-black text-lg uppercase tracking-wider active:scale-95"
-                style={{ background: 'linear-gradient(to bottom, #dc2626, #991b1b)', color: '#fff' }}>
-                Confirm — I'm Dead
-              </button>
-              <button onClick={() => setConfirmingKill(false)}
-                className="w-full py-3 text-gray-400 hover:text-white text-sm uppercase tracking-wider">
-                Cancel
-              </button>
+        {killPickerOpen && (
+          <div className="fixed inset-0 z-[60] flex items-end justify-center bg-black/80">
+            <div className="bg-[#1a1a2e] rounded-t-3xl p-6 w-full border-t border-white/10 flex flex-col gap-3" style={{ maxHeight: '80vh' }}>
+              {killPickerStep === 'menu' ? (
+                <>
+                  <p className="text-4xl text-center">☠️</p>
+                  <p className="text-white font-bold text-lg text-center">Mark a player dead</p>
+                  <p className="text-gray-400 text-xs text-center -mt-1">Anyone can mark anyone — for glitches, vote-outs, or impostor cleanup.</p>
+                  <button onClick={() => { setKillPickerOpen(false); markSelfKilled() }}
+                    className="w-full py-4 rounded-xl font-black text-lg uppercase tracking-wider active:scale-95"
+                    style={{ background: 'linear-gradient(to bottom, #dc2626, #991b1b)', color: '#fff' }}>
+                    Yourself
+                  </button>
+                  <button onClick={() => setKillPickerStep('list')}
+                    className="w-full py-4 rounded-xl font-black text-lg uppercase tracking-wider active:scale-95 border border-white/15 text-white"
+                    style={{ background: '#0d0d1a' }}>
+                    Someone Else
+                  </button>
+                  <button onClick={() => setKillPickerOpen(false)}
+                    className="w-full py-3 text-gray-400 hover:text-white text-sm uppercase tracking-wider">
+                    Cancel
+                  </button>
+                </>
+              ) : (
+                <>
+                  <p className="text-white font-bold text-lg text-center">Mark someone dead</p>
+                  <p className="text-gray-400 text-xs text-center -mt-2">Tap a name. Already-dead is a silent no-op.</p>
+                  <div className="flex flex-col gap-2 overflow-y-auto">
+                    {gamePlayers.map(p => (
+                      <button key={p.id}
+                        onClick={async () => { setKillPickerOpen(false); await killPlayer(game.id, p.id) }}
+                        className="w-full px-4 py-3 rounded-xl text-left font-bold border-2 border-white/10 bg-white/5 text-white active:scale-[0.98] active:bg-white/10 transition-all">
+                        {p.name}
+                      </button>
+                    ))}
+                  </div>
+                  <button onClick={() => setKillPickerStep('menu')}
+                    className="w-full py-3 text-gray-400 hover:text-white text-sm uppercase tracking-wider">
+                    ← Back
+                  </button>
+                </>
+              )}
             </div>
           </div>
         )}

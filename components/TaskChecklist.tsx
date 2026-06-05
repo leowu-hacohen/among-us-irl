@@ -2,6 +2,7 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { completeTask } from '@/lib/gameActions'
+import { getConfig } from '@/lib/gameConfig'
 import type { Task } from '@/types/game'
 
 interface Props {
@@ -36,7 +37,8 @@ export default function TaskChecklist({ gameId, playerId, isAlive }: Props) {
       setTotalCrewTasks(total)
       setDoneCrewTasks(done)
 
-      if (total > 0 && done === total) {
+      const threshold = getConfig().crewmateTaskWinThreshold
+      if (total > 0 && done / total >= threshold) {
         await supabase.from('games')
           .update({ game_over: true, winning_team: 'crewmates' })
           .eq('id', gameId)
